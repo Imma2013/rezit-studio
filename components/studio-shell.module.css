@@ -1,0 +1,690 @@
+/* Rezit 2.0 - Canva Pro Light Design System */
+
+.appShell {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  width: 100vw;
+  background-color: var(--bg-page);
+  color: var(--text-primary);
+  overflow: hidden;
+}
+
+/* ========================================================================= */
+/* 1. TOP HEADER BAR                                                        */
+/* ========================================================================= */
+
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 52px;
+  min-height: 52px;
+  padding: 0 16px;
+  background: var(--bg-surface);
+  border-bottom: 1px solid var(--border-light);
+  z-index: 50;
+  gap: 16px;
+}
+
+.topbarLeft {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.brandLogo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 800;
+  font-size: 16px;
+  color: var(--text-primary);
+  letter-spacing: -0.02em;
+  cursor: pointer;
+}
+
+.logoBadge {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: var(--radius-md);
+  background: linear-gradient(135deg, var(--primary) 0%, #00c4cc 100%);
+  color: white;
+  box-shadow: 0 2px 8px var(--primary-glow);
+}
+
+.docTitleBlock {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 10px;
+  border-radius: var(--radius-sm);
+  transition: background 0.15s ease;
+}
+
+.docTitleBlock:hover {
+  background: var(--bg-hover);
+}
+
+.docTitle {
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--text-primary);
+  border: none;
+  background: transparent;
+  outline: none;
+}
+
+.syncBadge {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  color: #10b981;
+  font-weight: 600;
+}
+
+.topbarCenter {
+  display: flex;
+  align-items: center;
+  background: var(--bg-subtle);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-lg);
+  padding: 3px;
+  gap: 2px;
+}
+
+.modeTab {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-secondary);
+  border: none;
+  background: transparent;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.modeTab:hover {
+  color: var(--text-primary);
+}
+
+.modeTabActive {
+  background: var(--bg-surface);
+  color: var(--primary);
+  box-shadow: var(--shadow-sm);
+}
+
+.topbarRight {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.btnSecondary {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
+  font-size: 12px;
+  font-weight: 700;
+  background: var(--bg-subtle);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.btnSecondary:hover {
+  background: var(--bg-hover);
+  border-color: var(--border-strong);
+}
+
+.btnShare {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 16px;
+  font-size: 12px;
+  font-weight: 800;
+  background: linear-gradient(135deg, var(--primary) 0%, #a855f7 100%);
+  color: white;
+  border: none;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  box-shadow: 0 2px 10px var(--primary-glow);
+  transition: all 0.15s ease;
+}
+
+.btnShare:hover {
+  opacity: 0.94;
+  transform: translateY(-1px);
+}
+
+.btnCopilotToggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 12px;
+  font-size: 12px;
+  font-weight: 700;
+  background: var(--primary-light);
+  color: var(--primary);
+  border: 1px solid rgba(125, 42, 232, 0.2);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.btnCopilotToggle:hover {
+  background: #ede0ff;
+}
+
+/* ========================================================================= */
+/* 2. MAIN WORKSPACE CONTAINER                                               */
+/* ========================================================================= */
+
+.workspaceBody {
+  display: flex;
+  flex: 1;
+  height: calc(100vh - 52px);
+  overflow: hidden;
+  position: relative;
+}
+
+/* Left Icon Dock */
+.leftDock {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 72px;
+  min-width: 72px;
+  background: var(--bg-surface);
+  border-right: 1px solid var(--border-light);
+  padding: 10px 0;
+  gap: 6px;
+  z-index: 30;
+}
+
+.dockItem {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 60px;
+  height: 56px;
+  padding: 6px 2px;
+  border: none;
+  background: transparent;
+  border-radius: var(--radius-md);
+  color: var(--text-secondary);
+  font-size: 10px;
+  font-weight: 700;
+  cursor: pointer;
+  gap: 4px;
+  transition: all 0.15s ease;
+}
+
+.dockItem:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.dockItemActive {
+  background: var(--primary-light);
+  color: var(--primary);
+}
+
+.dockSpacer {
+  flex: 1;
+}
+
+/* Left Expandable Panel */
+.leftDrawer {
+  width: 320px;
+  min-width: 320px;
+  background: var(--bg-surface);
+  border-right: 1px solid var(--border-light);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  z-index: 25;
+  box-shadow: var(--shadow-sm);
+  animation: slideDrawer 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes slideDrawer {
+  from {
+    width: 0;
+    min-width: 0;
+    opacity: 0;
+  }
+  to {
+    width: 320px;
+    min-width: 320px;
+    opacity: 1;
+  }
+}
+
+.drawerHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 18px 12px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.drawerHeader h3 {
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--text-primary);
+}
+
+.drawerClose {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 4px;
+  border-radius: var(--radius-sm);
+}
+
+.drawerClose:hover {
+  color: var(--text-primary);
+  background: var(--bg-hover);
+}
+
+.drawerContent {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* ========================================================================= */
+/* 3. CENTER GRAPHIC STAGE & CANVAS                                          */
+/* ========================================================================= */
+
+.centerStage {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  background: #ebedf0;
+  position: relative;
+  overflow: hidden;
+}
+
+/* Floating Contextual Toolbar */
+.contextualToolbar {
+  position: absolute;
+  top: 14px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-lg);
+  padding: 4px 8px;
+  gap: 6px;
+  box-shadow: var(--shadow-md);
+  z-index: 20;
+  animation: fadeInDown 0.15s ease;
+}
+
+@keyframes fadeInDown {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -6px);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+}
+
+.contextualDivider {
+  width: 1px;
+  height: 20px;
+  background: var(--border-light);
+  margin: 0 2px;
+}
+
+.contextBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 5px 8px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-secondary);
+  border: none;
+  background: transparent;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  gap: 4px;
+}
+
+.contextBtn:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.contextBtnActive {
+  background: var(--primary-light);
+  color: var(--primary);
+}
+
+/* Canvas Viewport */
+.canvasViewport {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: auto;
+  padding: 40px;
+}
+
+.artboardCanvas {
+  width: 560px;
+  height: 560px;
+  background: #0d0221;
+  border-radius: var(--radius-xl);
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.18);
+  position: relative;
+  overflow: hidden;
+  user-select: none;
+}
+
+.canvasNode {
+  position: absolute;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: box-shadow 0.12s ease;
+}
+
+.nodeSelected {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+/* In-Canvas Selection Action Pill */
+.selectionPill {
+  position: absolute;
+  top: -36px;
+  left: 0;
+  display: flex;
+  align-items: center;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-full);
+  padding: 3px 8px;
+  gap: 6px;
+  box-shadow: var(--shadow-sm);
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--primary);
+  white-space: nowrap;
+  pointer-events: auto;
+}
+
+/* Bottom Status Bar */
+.bottomBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 40px;
+  background: var(--bg-surface);
+  border-top: 1px solid var(--border-light);
+  padding: 0 16px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  z-index: 20;
+}
+
+.zoomControl {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.zoomSlider {
+  width: 100px;
+  accent-color: var(--primary);
+}
+
+/* ========================================================================= */
+/* 4. CONTEXT-AWARE AI COPILOT DRAWER (RIGHT PANEL)                          */
+/* ========================================================================= */
+
+.copilotPanel {
+  width: 360px;
+  min-width: 360px;
+  background: var(--bg-surface);
+  border-left: 1px solid var(--border-light);
+  display: flex;
+  flex-direction: column;
+  box-shadow: var(--shadow-lg);
+  z-index: 35;
+  animation: slideCopilot 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes slideCopilot {
+  from {
+    width: 0;
+    min-width: 0;
+    opacity: 0;
+  }
+  to {
+    width: 360px;
+    min-width: 360px;
+    opacity: 1;
+  }
+}
+
+.copilotHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border-light);
+  background: linear-gradient(180deg, var(--bg-surface) 0%, var(--bg-subtle) 100%);
+}
+
+.copilotBrand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.copilotBadge {
+  font-size: 10px;
+  font-weight: 800;
+  padding: 2px 7px;
+  border-radius: var(--radius-full);
+  background: var(--primary-light);
+  color: var(--primary);
+  text-transform: uppercase;
+}
+
+.copilotContextChip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 10px 16px 0;
+  padding: 8px 12px;
+  background: var(--bg-subtle);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-md);
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-secondary);
+}
+
+.copilotQuickPills {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  padding: 10px 16px;
+}
+
+.quickPill {
+  padding: 5px 10px;
+  font-size: 11px;
+  font-weight: 700;
+  background: var(--bg-subtle);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-full);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.12s ease;
+}
+
+.quickPill:hover {
+  background: var(--primary-light);
+  color: var(--primary);
+  border-color: var(--primary);
+}
+
+.copilotMessages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.msgUser {
+  align-self: flex-end;
+  max-width: 85%;
+  padding: 10px 14px;
+  background: var(--primary);
+  color: white;
+  border-radius: 14px 14px 2px 14px;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.4;
+  box-shadow: var(--shadow-sm);
+}
+
+.msgAssistant {
+  align-self: flex-start;
+  max-width: 90%;
+  padding: 12px 14px;
+  background: var(--bg-subtle);
+  border: 1px solid var(--border-light);
+  color: var(--text-primary);
+  border-radius: 14px 14px 14px 2px;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.copilotInputArea {
+  padding: 12px 16px;
+  border-top: 1px solid var(--border-light);
+  background: var(--bg-surface);
+}
+
+.copilotInputBox {
+  display: flex;
+  align-items: center;
+  background: var(--bg-subtle);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-lg);
+  padding: 6px 10px;
+  gap: 8px;
+}
+
+.copilotInputBox input {
+  flex: 1;
+  border: none;
+  background: transparent;
+  outline: none;
+  font-size: 12px;
+  color: var(--text-primary);
+}
+
+.copilotSendBtn {
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-md);
+  border: none;
+  background: var(--primary);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: opacity 0.15s ease;
+}
+
+.copilotSendBtn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* ========================================================================= */
+/* 5. MODAL & SHARE FLYOUT                                                  */
+/* ========================================================================= */
+
+.modalBackdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(14, 19, 24, 0.45);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  padding: 20px;
+}
+
+.modalContent {
+  width: 480px;
+  max-width: 100%;
+  background: var(--bg-surface);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-xl);
+  overflow: hidden;
+  animation: modalPop 0.15s ease;
+}
+
+@keyframes modalPop {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.modalHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px 22px 14px;
+  border-bottom: 1px solid var(--border-light);
+}
+
+.modalBody {
+  padding: 20px 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}

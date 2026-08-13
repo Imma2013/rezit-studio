@@ -1,0 +1,62 @@
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@500;700&display=swap');
+
+:root {
+  --font-main: 'Plus Jakarta Sans', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+
+  /* Canva Pro Color System */
+  --primary: #7d2ae8;
+  --primary-hover: #6c1fd1;
+  --primary-light: #f3ebff;
+  --primary-glow: rgba(125, 42, 232, 0.25);
+  --accent-cyan: #00c4cc;
+  --accent-pink: #ff007a;
+  --accent-amber: #ffaa00;
+
+  /* Universal Light Theme */
+  --bg-page: #f2f3f5;
+  --bg-surface: #ffffff;
+  --bg-subtle: #f8f9fa;
+  --bg-hover: #f1f3f5;
+  --bg-active: #e9ecef;
+
+  --border-light: #e5e7eb;
+  --border-subtle: #f1f3f5;
+  --border-strong: #d1d5db;
+
+  --text-primary: #0e1318;
+  --text-secondary: #5b6574;
+  --text-muted: #8b95a5;
+  --text-inverse: #ffffff;
+
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.08);
+  --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.12);
+  --shadow-xl: 0 20px 48px rgba(0, 0, 0, 0.16);
+
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 20px;
+  --radius-full: 9999px;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  -webkit-font-smoothing: antialiased;
+}
+
+body {
+  font-family: var(--font-main);
+  background-color: var(--bg-page);
+  color: var(--text-primary);
+  overflow: hidden;
+  height: 100vh;
+  width: 100vw;
+}
+
+button, input, textarea, select {
+  font-family: inherit;
+}

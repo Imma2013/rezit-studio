@@ -1,0 +1,63 @@
+'use client';
+
+import { ConvexProviderWithAuth, ConvexReactClient } from 'convex/react';
+import { onIdTokenChanged, type User } from 'firebase/auth';
+import { useEffect, useMemo, useState } from 'react';
+import { firebaseAuth } from '@/lib/firebase';
+import { AuthProvider } from '@/components/auth-provider';
+
+const convexUrl = process.env.NEXT_PUBLIC_CONVEX_URL;
+
+function isAbsoluteUrl(value: string | undefined): boolean {
+  if (!value) return false;
+  try {
+    new URL(value);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function useFirebaseAuth() {
+  const [user, setUser] = useState<User | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    if (!firebaseAuth) {
+      setIsLoading(false);
+      return;
+    }
+    return onIdTokenChanged(firebaseAuth, (nextUser) => {
+      setUser(nextUser);
+      setIsLoading(false);
+    });
+  }, []);
+
+  return {
+    isLoading,
+    isAuthenticated: user !== null,
+    fetchAccessToken: async ({ forceRefreshToken }: { forceRefreshToken: boolean }) => {
+      if (!user || !firebaseAuth) return null;
+      return user.getIdToken(forceRefreshToken);
+    },
+  };
+}
+
+export function AppProviders({ children }: Readonly<{ children: React.ReactNode }>) {
+  const client = useMemo(
+    () => (isAbsoluteUrl(convexUrl) && convexUrl ? new ConvexReactClient(convexUrl) : null),
+    []
+  );
+
+  if (!client) {
+    return <AuthProvider>{children}</AuthProvider>;
+  }
+
+  return (
+    <AuthProvider>
+      <ConvexProviderWithAuth client={client} useAuth={useFirebaseAuth}>
+        {children}
+      </ConvexProviderWithAuth>
+    </AuthProvider>
+  );
+}
