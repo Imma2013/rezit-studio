@@ -191,7 +191,7 @@ export function applyEditorActions(
       case 'set_filter': {
         const id = action.nodeId || targetNodeId;
         if (!id) break;
-        updated = updated.map((node) => (node.id === id ? { ...node, filter: action.filter } : node));
+        updated = updated.map((node) => (node.id === id ? { ...node, filter: action.filter as any } : node));
         appliedCount++;
         break;
       }
