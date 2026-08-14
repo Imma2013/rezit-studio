@@ -451,7 +451,7 @@ export function DashboardApp({ view }: { view: DashboardView }) {
   }
 
   async function createDesign(width = 1080, height = 1080, label = tr("dashboard.untitled_design"), kind?: string) {
-    if (!activeWorkspaceId) return;
+    const wsId = activeWorkspaceId || workspaces[0]?.id || "ws-personal";
     setSizeOpen(false);
     setBusy(true);
     try {
@@ -459,7 +459,7 @@ export function DashboardApp({ view }: { view: DashboardView }) {
       // Document types (docs 28-32) carry their surface marker in meta.kind; a
       // plain design leaves it unset (treated as "design").
       if (kind) from.meta.kind = kind;
-      const rec = await oc.createDesign({ workspaceId: activeWorkspaceId, title: label, from });
+      const rec = await oc.createDesign({ workspaceId: wsId, title: label, from });
       await open(rec.id);
     } catch {
       toast.error(tr("dashboard.could_not_create_design"));
@@ -468,13 +468,13 @@ export function DashboardApp({ view }: { view: DashboardView }) {
   }
 
   async function duplicate(item: HomeItem) {
-    if (!activeWorkspaceId) return;
+    const wsId = activeWorkspaceId || workspaces[0]?.id || "ws-personal";
     setBusy(true);
     try {
       const file = await oc.getDesignFile(item.id);
       const title = `${item.title} (copy)`;
       file.title = title;
-      await oc.createDesign({ workspaceId: activeWorkspaceId, title, from: file });
+      await oc.createDesign({ workspaceId: wsId, title, from: file });
       setItems(await load(query));
       toast.success(tr("dashboard.design_duplicated"));
     } catch {

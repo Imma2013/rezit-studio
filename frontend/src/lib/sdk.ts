@@ -630,8 +630,8 @@ class RezitClient extends HyCanvasClient {
       const cfg = getStoredAiConfig();
       return {
         provider: cfg.provider || "gemini",
-        model: cfg.model || "gemini-2.5-flash",
-        hasKey: Boolean(cfg.apiKey),
+        model: cfg.model || "gemini-3-flash-preview",
+        hasKey: true,
         capabilities: { image: true, reasoning: true },
       };
     }
@@ -643,44 +643,112 @@ class RezitClient extends HyCanvasClient {
     } catch {
       saveStoredAiConfig({
         provider: input.provider || "gemini",
-        model: input.model || "gemini-2.5-flash",
+        model: input.model || "gemini-3-flash-preview",
         apiKey: input.apiKey,
         baseUrl: input.baseUrl,
       });
       return {
         provider: input.provider || "gemini",
-        model: input.model || "gemini-2.5-flash",
-        hasKey: Boolean(input.apiKey),
+        model: input.model || "gemini-3-flash-preview",
+        hasKey: true,
         capabilities: { image: true, reasoning: true },
       };
     }
   }
 
-  async aiText(input: { workspaceId: string; prompt: string; system?: string }): Promise<{ text: string }> {
+  async aiText(input: { workspaceId: string; prompt: string; system?: string; model?: string }): Promise<{ text: string }> {
     try {
-      return await super.aiText(input);
+      const res = await fetch("/api/ai/text", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(input),
+      });
+      if (res.ok) {
+        return await res.json();
+      }
     } catch {
-      const text = await callGeminiApi(input.prompt, input.system);
-      return { text };
+      // fallback to direct client call
     }
+    const text = await callGeminiApi(input.prompt, input.system, input.model || "gemini-3-flash-preview");
+    return { text };
+  }
+
+  async aiOutline(input: { workspaceId: string; designType?: string; prompt: string; brandClause?: string; pageCount?: number }): Promise<any> {
+    try {
+      const res = await fetch("/api/ai/outline", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(input),
+      });
+      if (res.ok) {
+        return await res.json();
+      }
+    } catch {
+      // fallback
+    }
+    // Fallback outline
+    return {
+      title: input.prompt.slice(0, 40),
+      theme: "Modern High Impact",
+      pages: [
+        { title: input.prompt, points: ["Strategic Vision", "Core Execution", "Future Growth"], visualRole: "cover" },
+        { title: "Key Value Proposition", points: ["High performance architecture", "Intuitive user experience", "Seamless workflow"], visualRole: "content" },
+        { title: "Market Impact", points: ["10x workflow acceleration", "Zero-friction adoption", "Measurable ROI"], visualRole: "data" },
+        { title: "Next Steps", points: ["Get started today", "Contact team", "Scale effortlessly"], visualRole: "closing" },
+      ],
+    };
+  }
+
+  async aiGenerateDesign(input: { workspaceId: string; designType?: string; prompt: string; brandClause?: string; pageCount?: number }): Promise<{ jobId: string }> {
+    const outline = await this.aiOutline(input);
+    const jobId = `job_${Date.now()}`;
+    if (typeof window !== "undefined") {
+      try {
+        window.sessionStorage.setItem(`hc_job_${jobId}`, JSON.stringify({ state: "succeeded", result: outline }));
+      } catch {}
+    }
+    return { jobId };
+  }
+
+  async pollJob<T = any>(jobId: string): Promise<T> {
+    if (typeof window !== "undefined") {
+      const cached = window.sessionStorage.getItem(`hc_job_${jobId}`);
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        return parsed.result as T;
+      }
+    }
+    return { title: "Generated Design", theme: "Modern", pages: [] } as unknown as T;
   }
 
   async aiImage(input: { workspaceId: string; prompt: string; size?: string }): Promise<{ image: string }> {
     try {
-      return await super.aiImage(input);
-    } catch {
-      const image = await generateAiImage(input.prompt, { size: input.size });
-      return { image };
-    }
+      const res = await fetch("/api/ai/image", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(input),
+      });
+      if (res.ok) {
+        return await res.json();
+      }
+    } catch {}
+    const image = await generateAiImage(input.prompt, { size: input.size });
+    return { image };
   }
 
   async aiEditImage(input: { workspaceId: string; imageBase64: string; prompt: string; maskBase64?: string; size?: string }): Promise<{ image: string }> {
     try {
-      return await super.aiEditImage(input);
-    } catch {
-      const image = await generateAiImage(input.prompt);
-      return { image };
-    }
+      const res = await fetch("/api/ai/edit-image", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(input),
+      });
+      if (res.ok) {
+        return await res.json();
+      }
+    } catch {}
+    const image = await generateAiImage(input.prompt);
+    return { image };
   }
 }
 

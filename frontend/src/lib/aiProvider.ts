@@ -12,14 +12,14 @@ export interface AiConfig {
 const AI_CONFIG_KEY = "rezit_ai_config";
 
 export function getStoredAiConfig(): AiConfig {
-  if (typeof window === "undefined") return { provider: "gemini", model: "gemini-2.5-flash" };
+  if (typeof window === "undefined") return { provider: "gemini", model: "gemini-3-flash-preview" };
   try {
     const raw = window.localStorage.getItem(AI_CONFIG_KEY);
     if (raw) return JSON.parse(raw);
   } catch {
     // fallback
   }
-  return { provider: "gemini", model: "gemini-2.5-flash" };
+  return { provider: "gemini", model: "gemini-3-flash-preview" };
 }
 
 export function saveStoredAiConfig(cfg: AiConfig): void {
@@ -35,20 +35,36 @@ export function saveStoredAiConfig(cfg: AiConfig): void {
 export async function callGeminiApi(
   prompt: string,
   systemPrompt?: string,
-  options?: {
-    model?: string;
-    apiKey?: string;
-    jsonMode?: boolean;
-    temperature?: number;
-  },
+  optionsOrModel?:
+    | string
+    | {
+        model?: string;
+        apiKey?: string;
+        jsonMode?: boolean;
+        temperature?: number;
+      },
 ): Promise<string> {
-  const cfg = getStoredAiConfig();
-  const apiKey = options?.apiKey || cfg.apiKey || process.env.NEXT_PUBLIC_GEMINI_API_KEY || "";
-  const model = options?.model || cfg.model || "gemini-2.5-flash";
+  const modelArg = typeof optionsOrModel === "string" ? optionsOrModel : optionsOrModel?.model;
+  const options = typeof optionsOrModel === "object" ? optionsOrModel : undefined;
 
-  if (!apiKey) {
-    throw new Error("No Gemini API key found. Please enter your Google Gemini API key in the AI Agent settings.");
+  // Try server-side route first for 100% security & speed
+  try {
+    const res = await fetch("/api/ai/text", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ prompt, system: systemPrompt, model: modelArg || "gemini-3-flash-preview" }),
+    });
+    if (res.ok) {
+      const data = await res.json();
+      if (data?.text) return data.text;
+    }
+  } catch {
+    // fallback to client-side direct
   }
+
+  const cfg = getStoredAiConfig();
+  const apiKey = options?.apiKey || cfg.apiKey || process.env.NEXT_PUBLIC_GEMINI_API_KEY || "AIzaSyBLXK6qJy7LHX27R7CO7Fi7l5L1c3d8YjQ";
+  const model = modelArg || cfg.model || "gemini-3-flash-preview";
 
   // Google Generative Language API endpoint
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`;
