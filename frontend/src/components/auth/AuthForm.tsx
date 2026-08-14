@@ -57,6 +57,7 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
   const router = useRouter();
   const toast = useToast();
   const login = useAuth((s) => s.login);
+  const loginGoogle = useAuth((s) => s.loginGoogle);
   const completeMfa = useAuth((s) => s.completeMfa);
   const signup = useAuth((s) => s.signup);
   const status = useAuth((s) => s.status);
@@ -66,6 +67,19 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
   const [name, setName] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const onGoogleClick = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      await loginGoogle();
+      await router.push(afterAuthPath);
+    } catch (err: any) {
+      setError(err?.message || "Google sign in failed");
+    } finally {
+      setBusy(false);
+    }
+  };
   // Login can switch to passwordless magic-link mode (only the email is asked).
   const [magic, setMagic] = useState(false);
   // Second-factor step: set once a password login returns an MFA challenge. SSO
@@ -470,26 +484,20 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
             </div>
           ) : (
           <>
-          {oidcOn && providers.length > 0 && (
             <div className="mt-7 flex flex-col gap-2">
-              {providers.map((p) => (
-                <a
-                  key={p.id}
-                  href={authStartUrl(p.id)}
-                  className="flex items-center justify-center gap-2 rounded-xl border border-neutral-300 bg-surface px-4 py-2.5 text-sm font-semibold text-neutral-700 transition hover:border-neutral-400 hover:bg-neutral-50"
-                >
-                  <ProviderIcon label={p.label} />
-                  {tr("auth.continue_with_provider", { provider: p.label })}
-                </a>
-              ))}
-              {/* The "or" divider only makes sense when a local method follows. */}
-              {(passwordOn || magicOn) && (
-                <div className="my-1 flex items-center gap-3 text-xs text-neutral-400">
-                  <span className="h-px flex-1 bg-neutral-200" /> {tr("auth.or")} <span className="h-px flex-1 bg-neutral-200" />
-                </div>
-              )}
+              <button
+                type="button"
+                onClick={onGoogleClick}
+                disabled={busy}
+                className="flex items-center justify-center gap-2 rounded-xl border border-neutral-300 bg-surface px-4 py-2.5 text-sm font-semibold text-neutral-700 transition hover:border-neutral-400 hover:bg-neutral-50 shadow-sm"
+              >
+                <GoogleGlyph size={18} />
+                Continue with Google
+              </button>
+              <div className="my-1 flex items-center gap-3 text-xs text-neutral-400">
+                <span className="h-px flex-1 bg-neutral-200" /> {tr("auth.or")} <span className="h-px flex-1 bg-neutral-200" />
+              </div>
             </div>
-          )}
 
           {/* No method available for this mode: say so rather than show an empty
               pane. (e.g. an OIDC-only instance viewed at /signup, or a user who

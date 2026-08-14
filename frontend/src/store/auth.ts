@@ -20,18 +20,14 @@ interface AuthState {
   activeWorkspaceId: string | null;
   error: string | null;
   bootstrap: () => Promise<void>;
-  // Resolves to a challenge token when the account requires a second factor;
-  // the caller then prompts for a code and calls completeMfa to finish.
+  loginGoogle: () => Promise<void>;
   login: (email: string, password: string, captchaToken?: string) => Promise<{ mfaToken: string } | void>;
   completeMfa: (mfaToken: string, code: string) => Promise<void>;
   signup: (email: string, password: string, name?: string, captchaToken?: string) => Promise<void>;
   logout: () => Promise<void>;
-  // Permanently delete the account (FR-17), then drop to the anon state. The
-  // server clears the auth cookies; we clear local state and the active id.
   deleteAccount: (input: { password: string; code?: string }) => Promise<void>;
   setActiveWorkspace: (id: string) => void;
   refreshWorkspaces: () => Promise<void>;
-  // Replace the cached user after a profile change (no full re-bootstrap).
   setUser: (user: User) => void;
 }
 
@@ -137,6 +133,45 @@ export const useAuth = create<AuthState>((set, get) => ({
       })();
     }
     return hydrating;
+  },
+
+  async loginGoogle() {
+    set({ error: null });
+    try {
+      const { loginWithGoogle } = await import("@/lib/firebase");
+      const cred = await loginWithGoogle();
+      if (cred?.user) {
+        const u: User = {
+          id: cred.user.uid,
+          email: cred.user.email || "creator@rezit.studio",
+          emailVerified: cred.user.emailVerified,
+          name: cred.user.displayName || "Rezit Creator",
+          avatarUrl: cred.user.photoURL || undefined,
+          locale: "en",
+          theme: "light",
+          timezone: "",
+          timeFormat: "auto",
+          weekStart: "auto",
+          prefs: { accessibility: { reduceMotion: false, highContrast: false } },
+          mfaEnabled: false,
+          createdAt: new Date().toISOString(),
+        };
+        const ws: WorkspaceWithRole[] = [
+          {
+            id: `ws-${cred.user.uid}`,
+            name: `${u.name}'s Workspace`,
+            slug: "personal",
+            kind: "personal",
+            role: "owner",
+            ownerId: cred.user.uid,
+            createdAt: new Date().toISOString(),
+          },
+        ];
+        set({ status: "authed", user: u, workspaces: ws, activeWorkspaceId: ws[0].id });
+      }
+    } catch (e: any) {
+      set({ error: e?.message || "Google sign in failed" });
+    }
   },
 
   async login(email, password, captchaToken) {
