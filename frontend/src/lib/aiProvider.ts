@@ -63,7 +63,7 @@ export async function callGeminiApi(
   }
 
   const cfg = getStoredAiConfig();
-  const apiKey = options?.apiKey || cfg.apiKey || process.env.NEXT_PUBLIC_GEMINI_API_KEY || "AIzaSyBLXK6qJy7LHX27R7CO7Fi7l5L1c3d8YjQ";
+  const apiKey = options?.apiKey || cfg.apiKey || process.env.NEXT_PUBLIC_GEMINI_API_KEY || "";
   const model = modelArg || cfg.model || "gemini-3-flash-preview";
 
   // Google Generative Language API endpoint

@@ -208,25 +208,36 @@ export function DashboardApp({ view }: { view: DashboardView }) {
   const [tplCollection, setTplCollection] = useState<string | null>(null);
   const [collections, setCollections] = useState<TemplateCollectionSummary[]>([]);
 
+  // Ensure session is bootstrapped on dashboard load
+  useEffect(() => {
+    void useAuth.getState().bootstrap();
+  }, []);
+
   const load = useCallback(async (q: string) => {
-    if (!activeWorkspaceId) return [] as HomeItem[];
-    return q.trim() ? oc.search(activeWorkspaceId, q.trim()) : oc.home(activeWorkspaceId, "recent");
-  }, [activeWorkspaceId]);
+    const wsId = activeWorkspaceId || workspaces[0]?.id || "ws-personal";
+    return q.trim() ? oc.search(wsId, q.trim()).catch(() => []) : oc.home(wsId, "recent").catch(() => []);
+  }, [activeWorkspaceId, workspaces]);
 
   useEffect(() => {
-    if (!activeWorkspaceId) return;
     let cancelled = false;
+    const wsId = activeWorkspaceId || workspaces[0]?.id || "ws-personal";
     void (async () => {
-      const [recent, tpls] = await Promise.all([oc.home(activeWorkspaceId, "recent"), oc.listTemplates().catch(() => [])]);
-      if (cancelled) return;
-      setItems(recent);
-      setTemplates(tpls);
-      setLoading(false);
+      try {
+        const [recent, tpls] = await Promise.all([
+          oc.home(wsId, "recent").catch(() => []),
+          oc.listTemplates().catch(() => []),
+        ]);
+        if (cancelled) return;
+        setItems(recent);
+        setTemplates(tpls);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
     })();
     return () => {
       cancelled = true;
     };
-  }, [activeWorkspaceId]);
+  }, [activeWorkspaceId, workspaces]);
 
   // Load trashed designs when the Trash view is opened.
   useEffect(() => {
