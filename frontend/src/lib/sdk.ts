@@ -6,6 +6,8 @@ import {
   type HomeItem,
   type TemplateSummary,
   type UploadedAsset,
+  type AssetListFilter,
+  type AssetFolder,
   type User,
   type WorkspaceWithRole,
 } from "@hc/sdk";
@@ -19,6 +21,8 @@ const rawClient = new HyCanvasClient({ baseUrl, credentials: "include" });
 const RECENT_KEY = "rezit_recent_designs";
 const DOC_PREFIX = "rezit_doc_";
 const META_PREFIX = "rezit_meta_";
+const ASSETS_KEY = "rezit_uploaded_assets";
+const FOLDERS_KEY = "rezit_asset_folders";
 
 function getStoredRecent(): HomeItem[] {
   if (typeof window === "undefined") return [];
@@ -37,6 +41,62 @@ function saveStoredRecent(items: HomeItem[]) {
   } catch {
     // quota ignore
   }
+}
+
+function getStoredAssets(workspaceId?: string): UploadedAsset[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = window.localStorage.getItem(ASSETS_KEY);
+    const list: UploadedAsset[] = raw ? JSON.parse(raw) : [];
+    if (workspaceId) return list.filter((a) => !a.workspaceId || a.workspaceId === workspaceId);
+    return list;
+  } catch {
+    return [];
+  }
+}
+
+function saveStoredAssets(items: UploadedAsset[]) {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(ASSETS_KEY, JSON.stringify(items));
+  } catch {
+    // quota ignore
+  }
+}
+
+function getStoredFolders(workspaceId?: string): AssetFolder[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = window.localStorage.getItem(FOLDERS_KEY);
+    const list: AssetFolder[] = raw ? JSON.parse(raw) : [];
+    if (workspaceId) return list.filter((f) => !f.workspaceId || f.workspaceId === workspaceId);
+    return list;
+  } catch {
+    return [];
+  }
+}
+
+function saveStoredFolders(items: AssetFolder[]) {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(FOLDERS_KEY, JSON.stringify(items));
+  } catch {
+    // ignore
+  }
+}
+
+function inferAssetKind(filename: string, mimeType?: string): "image" | "video" | "audio" | "svg" {
+  const ext = (filename.split(".").pop() || "").toLowerCase();
+  if (mimeType?.startsWith("video/") || ["mp4", "webm", "mov", "m4v", "avi", "mkv"].includes(ext)) {
+    return "video";
+  }
+  if (mimeType?.startsWith("audio/") || ["mp3", "wav", "ogg", "m4a", "aac", "flac"].includes(ext)) {
+    return "audio";
+  }
+  if (mimeType?.includes("svg") || ext === "svg") {
+    return "svg" as any;
+  }
+  return "image";
 }
 
 // Built-in starter templates for Rezit Studio
@@ -347,14 +407,185 @@ class RezitClient extends HyCanvasClient {
     }
   }
 
+  async listAssets(workspaceId: string, filter: AssetListFilter = {}): Promise<UploadedAsset[]> {
+    try {
+      return await super.listAssets(workspaceId, filter);
+    } catch {
+      let list = getStoredAssets(workspaceId);
+      if (filter.folderId !== undefined) {
+        if (filter.folderId === null || filter.folderId === "root") {
+          list = list.filter((a) => !a.folderId);
+        } else {
+          list = list.filter((a) => a.folderId === filter.folderId);
+        }
+      }
+      if (filter.tag) {
+        list = list.filter((a) => a.tags?.includes(filter.tag!));
+      }
+      if (filter.q) {
+        const q = filter.q.toLowerCase();
+        list = list.filter((a) => (a.filename || "").toLowerCase().includes(q) || (a.tags || []).some((t) => t.toLowerCase().includes(q)));
+      }
+      return list;
+    }
+  }
+
+  async uploadAsset(workspaceId: string, input: { filename: string; dataBase64: string; folderId?: string | null; thumbnail?: string }): Promise<UploadedAsset> {
+    try {
+      return await super.uploadAsset(workspaceId, input);
+    } catch {
+      const ext = (input.filename.split(".").pop() || "").toLowerCase();
+      const isVideo = ["mp4", "webm", "mov", "m4v", "avi"].includes(ext);
+      const isAudio = ["mp3", "wav", "ogg", "m4a", "aac"].includes(ext);
+      const isSvg = ext === "svg";
+      const mimeType = isVideo ? "video/mp4" : isAudio ? "audio/mpeg" : isSvg ? "image/svg+xml" : ext === "png" ? "image/png" : "image/jpeg";
+      const kind = isVideo ? "video" : isAudio ? "audio" : "image";
+      
+      const isDataUrl = input.dataBase64.startsWith("data:");
+      const url = isDataUrl ? input.dataBase64 : `data:${mimeType};base64,${input.dataBase64}`;
+      const thumbnail = input.thumbnail || (isSvg || !isVideo && !isAudio ? url : null);
+
+      const asset: UploadedAsset = {
+        id: `asset_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+        workspaceId,
+        kind,
+        filename: input.filename,
+        mimeType,
+        byteSize: input.dataBase64.length,
+        folderId: input.folderId || null,
+        tags: [],
+        url,
+        thumbnail,
+        createdAt: new Date().toISOString(),
+      };
+
+      const existing = getStoredAssets();
+      existing.unshift(asset);
+      saveStoredAssets(existing);
+      return asset;
+    }
+  }
+
+  async importAssetFromUrl(workspaceId: string, url: string, folderId?: string | null): Promise<UploadedAsset> {
+    try {
+      return await super.importAssetFromUrl(workspaceId, url, folderId);
+    } catch {
+      const filename = url.split("/").pop()?.split("?")[0] || "imported-media";
+      const asset: UploadedAsset = {
+        id: `asset_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+        workspaceId,
+        kind: inferAssetKind(filename),
+        filename,
+        mimeType: filename.endsWith(".png") ? "image/png" : "image/jpeg",
+        byteSize: 1024,
+        folderId: folderId || null,
+        tags: [],
+        url,
+        thumbnail: url,
+        createdAt: new Date().toISOString(),
+      };
+      const existing = getStoredAssets();
+      existing.unshift(asset);
+      saveStoredAssets(existing);
+      return asset;
+    }
+  }
+
+  async updateAsset(id: string, patch: { filename?: string; folderId?: string | null; tags?: string[] }): Promise<UploadedAsset> {
+    try {
+      return await super.updateAsset(id, patch);
+    } catch {
+      const list = getStoredAssets();
+      const idx = list.findIndex((a) => a.id === id);
+      if (idx >= 0) {
+        if (patch.filename !== undefined) list[idx].filename = patch.filename;
+        if (patch.folderId !== undefined) list[idx].folderId = patch.folderId;
+        if (patch.tags !== undefined) list[idx].tags = patch.tags;
+        saveStoredAssets(list);
+        return list[idx];
+      }
+      throw new Error("Asset not found");
+    }
+  }
+
+  async deleteAsset(id: string): Promise<void> {
+    try {
+      await super.deleteAsset(id);
+    } catch {
+      const list = getStoredAssets().filter((a) => a.id !== id);
+      saveStoredAssets(list);
+    }
+  }
+
+  async listAssetFolders(workspaceId: string): Promise<AssetFolder[]> {
+    try {
+      return await super.listAssetFolders(workspaceId);
+    } catch {
+      return getStoredFolders(workspaceId);
+    }
+  }
+
+  async createAssetFolder(workspaceId: string, input: { name: string; parentId?: string | null }): Promise<AssetFolder> {
+    try {
+      return await super.createAssetFolder(workspaceId, input);
+    } catch {
+      const folder: AssetFolder = {
+        id: `fld_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+        workspaceId,
+        name: input.name,
+        parentId: input.parentId || null,
+        createdAt: new Date().toISOString(),
+      };
+      const folders = getStoredFolders();
+      folders.push(folder);
+      saveStoredFolders(folders);
+      return folder;
+    }
+  }
+
+  async renameAssetFolder(id: string, name: string): Promise<AssetFolder> {
+    try {
+      return await super.renameAssetFolder(id, name);
+    } catch {
+      const folders = getStoredFolders();
+      const f = folders.find((x) => x.id === id);
+      if (f) {
+        f.name = name;
+        saveStoredFolders(folders);
+        return f;
+      }
+      throw new Error("Folder not found");
+    }
+  }
+
+  async deleteAssetFolder(id: string): Promise<void> {
+    try {
+      await super.deleteAssetFolder(id);
+    } catch {
+      const folders = getStoredFolders().filter((x) => x.id !== id);
+      saveStoredFolders(folders);
+      const assets = getStoredAssets();
+      let changed = false;
+      for (const a of assets) {
+        if (a.folderId === id) {
+          a.folderId = null;
+          changed = true;
+        }
+      }
+      if (changed) saveStoredAssets(assets);
+    }
+  }
+
   async assetUsage(workspaceId: string): Promise<{ usedBytes: number; quotaBytes: number; userUsedBytes: number; userQuotaBytes: number }> {
     try {
       return await super.assetUsage(workspaceId);
     } catch {
+      const assets = getStoredAssets(workspaceId);
+      const usedBytes = assets.reduce((sum, a) => sum + (a.byteSize || 1024), 0);
       return {
-        usedBytes: 1048576,
+        usedBytes,
         quotaBytes: 10737418240, // 10 GB
-        userUsedBytes: 1048576,
+        userUsedBytes: usedBytes,
         userQuotaBytes: 10737418240,
       };
     }
@@ -388,29 +619,21 @@ class RezitClient extends HyCanvasClient {
 export const oc = new RezitClient({ baseUrl, credentials: "include" });
 
 /** Upload one asset with byte-level progress */
-export function uploadAssetWithProgress(
+export async function uploadAssetWithProgress(
   workspaceId: string,
   input: { filename: string; dataBase64: string; folderId?: string | null; thumbnail?: string },
   onProgress?: (pct: number) => void,
 ): Promise<UploadedAsset> {
-  return new Promise<UploadedAsset>((resolve, reject) => {
-    // Generate immediate client-side data asset
-    const asset: UploadedAsset = {
-      id: `asset_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
-      workspaceId,
-      kind: "image",
-      filename: input.filename,
-      mimeType: input.filename.endsWith(".png") ? "image/png" : "image/jpeg",
-      byteSize: input.dataBase64.length,
-      folderId: input.folderId || null,
-      tags: [],
-      url: input.dataBase64,
-      thumbnail: input.thumbnail || input.dataBase64,
-      createdAt: new Date().toISOString(),
-    };
+  if (onProgress) onProgress(30);
+  try {
+    if (onProgress) onProgress(60);
+    const asset = await oc.uploadAsset(workspaceId, input);
     if (onProgress) onProgress(100);
-    resolve(asset);
-  });
+    return asset;
+  } catch (e) {
+    if (onProgress) onProgress(100);
+    throw e;
+  }
 }
 
 export const apiOrigin = baseUrl.replace(/\/api\/?$/, "");

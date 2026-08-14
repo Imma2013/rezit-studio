@@ -976,7 +976,40 @@ function readAsDataUrl(blob: Blob): Promise<string> {
 const THUMB_MAX = 256;
 async function makeThumbnail(file: File): Promise<string | undefined> {
   if (typeof document === "undefined") return undefined;
-  if (file.type === "image/svg+xml") return undefined; // vectors scale losslessly
+  if (file.type === "image/svg+xml" || file.name.endsWith(".svg")) return undefined; // vectors scale losslessly
+  if (file.type.startsWith("video/")) {
+    return new Promise((resolve) => {
+      try {
+        const video = document.createElement("video");
+        video.preload = "metadata";
+        video.src = URL.createObjectURL(file);
+        video.muted = true;
+        video.playsInline = true;
+        video.currentTime = 0.5;
+        video.onloadeddata = () => {
+          const canvas = document.createElement("canvas");
+          canvas.width = Math.min(video.videoWidth || 256, 256);
+          canvas.height = Math.min(video.videoHeight || 256, 256);
+          const ctx = canvas.getContext("2d");
+          if (ctx) {
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+            URL.revokeObjectURL(video.src);
+            resolve(canvas.toDataURL("image/jpeg", 0.7));
+          } else {
+            URL.revokeObjectURL(video.src);
+            resolve(undefined);
+          }
+        };
+        video.onerror = () => {
+          URL.revokeObjectURL(video.src);
+          resolve(undefined);
+        };
+      } catch {
+        resolve(undefined);
+      }
+    });
+  }
+  if (!file.type.startsWith("image/")) return undefined;
   try {
     const dataUrl = await readAsDataUrl(file);
     const img = await new Promise<HTMLImageElement>((res, rej) => {
@@ -1077,18 +1110,35 @@ export function UploadsPanel({ workspaceId }: { workspaceId: string | null }) {
     return "size";
   }
 
-  // Upload one or many image files (drag-drop or picker) into the open folder.
+  // Upload one or many media files (drag-drop or picker) into the open folder.
   const uploadFiles = useCallback(async (files: File[]) => {
     if (!workspaceId) return;
-    const imgs = files.filter((f) => f.type.startsWith("image/"));
-    if (!imgs.length) { if (files.length) toast.error(tr("editor.only_image_files_can_be_uploaded")); return; }
+    const mediaFiles = files.filter(
+      (f) =>
+        f.type.startsWith("image/") ||
+        f.type.startsWith("video/") ||
+        f.type.startsWith("audio/") ||
+        f.name.endsWith(".svg") ||
+        f.name.endsWith(".pdf"),
+    );
+    if (!mediaFiles.length) {
+      if (files.length) toast.error("Only media files (images, videos, audio) can be uploaded");
+      return;
+    }
     // Show a placeholder tile per file immediately, with a live progress %.
-    const items = imgs.map((file) => ({ id: `up-${crypto.randomUUID()}`, name: file.name, preview: URL.createObjectURL(file), progress: 0, error: false, file }));
+    const items = mediaFiles.map((file) => ({
+      id: `up-${crypto.randomUUID()}`,
+      name: file.name,
+      preview: file.type.startsWith("image/") ? URL.createObjectURL(file) : "",
+      progress: 0,
+      error: false,
+      file,
+    }));
     setUploading((cur) => [...items.map((it) => ({ id: it.id, name: it.name, preview: it.preview, progress: it.progress, error: it.error })), ...cur]);
     const setPct = (id: string, progress: number) => setUploading((cur) => cur.map((u) => (u.id === id ? { ...u, progress } : u)));
     const remove = (id: string) => setUploading((cur) => {
       const u = cur.find((x) => x.id === id);
-      if (u) URL.revokeObjectURL(u.preview);
+      if (u && u.preview) URL.revokeObjectURL(u.preview);
       return cur.filter((x) => x.id !== id);
     });
     let ok = 0;
@@ -1101,7 +1151,7 @@ export function UploadsPanel({ workspaceId }: { workspaceId: string | null }) {
         const thumbnail = await makeThumbnail(it.file);
         const asset = await uploadAssetWithProgress(
           workspaceId,
-          { filename: it.file.name, dataBase64: dataUrl.split(",")[1] ?? "", folderId, thumbnail },
+          { filename: it.file.name, dataBase64: dataUrl, folderId, thumbnail },
           (pct) => setPct(it.id, pct),
         );
         ok++;
@@ -1116,11 +1166,18 @@ export function UploadsPanel({ workspaceId }: { workspaceId: string | null }) {
         setTimeout(() => remove(it.id), 4000);
       }
     }
-    if (ok) { toast.success(ok === 1 ? tr("editor.uploaded") : tr("editor.uploaded_n_images", { count: ok })); await refresh(); }
-    if (limit === "account") toast.error(tr("editor.your_account_storage_limit_is_reached_delete"));
-    else if (limit === "workspace") toast.error(tr("editor.storage_quota_reached_delete_some_uploads_to"));
-    else if (limit === "size") toast.error(tr("editor.file_too_large_the_server_or_its_reverse_pro"));
-    else if (ok < imgs.length) toast.error(tr("editor.n_uploads_failed_unsupported", { count: imgs.length - ok }));
+    if (ok) {
+      toast.success(ok === 1 ? tr("editor.uploaded") : `Uploaded ${ok} files`);
+      await refresh();
+    } else if (limit === "account") {
+      toast.error(tr("editor.your_account_storage_limit_is_reached_delete"));
+    } else if (limit === "workspace") {
+      toast.error(tr("editor.storage_quota_reached_delete_some_uploads_to"));
+    } else if (limit === "size") {
+      toast.error(tr("editor.file_too_large_the_server_or_its_reverse_pro"));
+    } else if (ok < mediaFiles.length) {
+      toast.error(`${mediaFiles.length - ok} uploads failed`);
+    }
   }, [workspaceId, folderId, refresh, toast]);
 
   // Upload an arbitrary recorded Blob (audio/video) as an asset.
@@ -1297,7 +1354,7 @@ export function UploadsPanel({ workspaceId }: { workspaceId: string | null }) {
 
   return (
     <PanelShell title={tr("editor.uploads")}>
-      <input ref={fileRef} type="file" accept="image/*" multiple hidden onChange={(e) => void onFile(e)} />
+      <input ref={fileRef} type="file" accept="image/*,video/*,audio/*,.svg,.pdf" multiple hidden onChange={(e) => void onFile(e)} />
       <input ref={svgRef} type="file" accept=".svg,image/svg+xml" hidden onChange={(e) => void onSvgFile(e)} />
       <input ref={pdfRef} type="file" accept=".pdf,application/pdf" hidden onChange={(e) => void onPdfFile(e)} />
 
@@ -1310,9 +1367,9 @@ export function UploadsPanel({ workspaceId }: { workspaceId: string | null }) {
             className={`rounded-xl border-2 border-dashed p-3 text-center transition ${dragOver ? "border-brand-400 bg-brand-50" : "border-neutral-200"}`}
           >
             <Button block onClick={() => fileRef.current?.click()} disabled={!workspaceId}>
-              <Upload size={16} /> {selectedFolder ? `Upload to ${selectedFolder.name}` : tr("editor.upload_images")}
+              <Upload size={16} /> {selectedFolder ? `Upload to ${selectedFolder.name}` : "Upload media"}
             </Button>
-            <p className="mt-2 text-[11px] text-neutral-400">{tr("editor.or_drop_images_here")}</p>
+            <p className="mt-2 text-[11px] text-neutral-400">or drop images / videos here</p>
             {/* Compact one-word labels so the three cells hold one line at
                 every panel width and font metric (the previous nowrap labels
                 overflowed their neighbors on narrow panels / wider fonts);
@@ -1433,10 +1490,26 @@ export function UploadsPanel({ workspaceId }: { workspaceId: string | null }) {
                 draggable
                 onDragStart={(e) => e.dataTransfer.setData("application/x-oc-image", resolveAssetUrl(a.url))}
                 title={tr("editor.click_to_place_or_drag_onto_the_canvas")}
-                className="block w-full"
+                className="relative block w-full aspect-square overflow-hidden bg-neutral-900"
               >
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={a.thumbnail ?? resolveAssetUrl(a.url)} alt={a.filename ?? "upload"} className="aspect-square w-full object-cover" />
+                {a.thumbnail ? (
+                  <img src={a.thumbnail} alt={a.filename ?? "upload"} className="aspect-square w-full object-cover" />
+                ) : a.kind === "video" || a.mimeType?.startsWith("video/") ? (
+                  <video src={resolveAssetUrl(a.url)} className="aspect-square w-full object-cover" muted playsInline />
+                ) : (
+                  <img src={resolveAssetUrl(a.url)} alt={a.filename ?? "upload"} className="aspect-square w-full object-cover" />
+                )}
+                {(a.kind === "video" || a.mimeType?.startsWith("video/")) && (
+                  <div className="absolute start-1.5 bottom-1.5 flex items-center gap-1 rounded bg-black/70 px-1.5 py-0.5 text-[10px] font-semibold text-white">
+                    <Play size={10} fill="currentColor" /> VIDEO
+                  </div>
+                )}
+                {(a.kind === "audio" || a.mimeType?.startsWith("audio/")) && (
+                  <div className="absolute start-1.5 bottom-1.5 flex items-center gap-1 rounded bg-black/70 px-1.5 py-0.5 text-[10px] font-semibold text-white">
+                    <Mic size={10} /> AUDIO
+                  </div>
+                )}
               </button>
               {/* Visible-but-transparent (not display:none) so the actions stay
                   Tab-reachable; focus-within reveals them for keyboard users. */}
