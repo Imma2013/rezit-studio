@@ -1,0 +1,9 @@
+node_modules
+.next
+frontend/.next
+frontend/out
+dist
+bin
+.git
+.turbo
+*.tsbuildinfo
