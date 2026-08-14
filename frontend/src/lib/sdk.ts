@@ -14,6 +14,7 @@ import {
 import { createBlankDesign, type DesignFile } from "@hc/schema";
 import { CodedError } from "./errors";
 import { putMediaAsset, getMediaAssets, deleteMediaAsset, updateMediaAssetRecord } from "./assetStore";
+import { callGeminiApi, generateAiImage, getStoredAiConfig, saveStoredAiConfig } from "./aiProvider";
 
 const baseUrl = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8005/api";
 const rawClient = new HyCanvasClient({ baseUrl, credentials: "include" });
@@ -619,6 +620,66 @@ class RezitClient extends HyCanvasClient {
       return await super.listTemplateCollections(workspaceId);
     } catch {
       return [];
+    }
+  }
+
+  async getAiConfig(workspaceId: string): Promise<any> {
+    try {
+      return await super.getAiConfig(workspaceId);
+    } catch {
+      const cfg = getStoredAiConfig();
+      return {
+        provider: cfg.provider || "gemini",
+        model: cfg.model || "gemini-2.5-flash",
+        hasKey: Boolean(cfg.apiKey),
+        capabilities: { image: true, reasoning: true },
+      };
+    }
+  }
+
+  async setAiConfig(workspaceId: string, input: any): Promise<any> {
+    try {
+      return await super.setAiConfig(workspaceId, input);
+    } catch {
+      saveStoredAiConfig({
+        provider: input.provider || "gemini",
+        model: input.model || "gemini-2.5-flash",
+        apiKey: input.apiKey,
+        baseUrl: input.baseUrl,
+      });
+      return {
+        provider: input.provider || "gemini",
+        model: input.model || "gemini-2.5-flash",
+        hasKey: Boolean(input.apiKey),
+        capabilities: { image: true, reasoning: true },
+      };
+    }
+  }
+
+  async aiText(input: { workspaceId: string; prompt: string; system?: string }): Promise<{ text: string }> {
+    try {
+      return await super.aiText(input);
+    } catch {
+      const text = await callGeminiApi(input.prompt, input.system);
+      return { text };
+    }
+  }
+
+  async aiImage(input: { workspaceId: string; prompt: string; size?: string }): Promise<{ image: string }> {
+    try {
+      return await super.aiImage(input);
+    } catch {
+      const image = await generateAiImage(input.prompt, { size: input.size });
+      return { image };
+    }
+  }
+
+  async aiEditImage(input: { workspaceId: string; imageBase64: string; prompt: string; maskBase64?: string; size?: string }): Promise<{ image: string }> {
+    try {
+      return await super.aiEditImage(input);
+    } catch {
+      const image = await generateAiImage(input.prompt);
+      return { image };
     }
   }
 }

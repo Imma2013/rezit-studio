@@ -5,7 +5,7 @@
 import { useCallback, useEffect, useRef, useState, type ComponentType } from "react";
 import { useRouter } from "next/router";
 import type { Node as DesignNode } from "@hc/schema";
-import { ChevronLeft, Undo2, Redo2, Download, Play, MonitorPlay, Ruler, Grid3x3, Magnet, LayoutTemplate, History, Eye, Share2, MessageSquare, ShieldCheck, Activity, BarChart3, MoreHorizontal, Send, Globe, Printer, PanelRightClose, PanelRightOpen, Keyboard, Info, X, Accessibility, Maximize2, Minimize2, LayoutGrid, FileDown, Film, Table2 } from "lucide-react";
+import { ChevronLeft, Undo2, Redo2, Download, Play, MonitorPlay, Ruler, Grid3x3, Magnet, LayoutTemplate, History, Eye, Share2, MessageSquare, ShieldCheck, Activity, BarChart3, MoreHorizontal, Send, Globe, Printer, PanelRightClose, PanelRightOpen, Keyboard, Info, X, Accessibility, Maximize2, Minimize2, LayoutGrid, FileDown, Film, Table2, Sparkles } from "lucide-react";
 import type { AccessMode } from "@hc/sdk";
 import { ApiError } from "@hc/sdk";
 import { oc } from "@/lib/sdk";
@@ -33,6 +33,7 @@ import { WebsiteDialog } from "./WebsiteDialog";
 import { PrintDialog } from "./PrintDialog";
 import { AccessibilityDialog } from "./AccessibilityDialog";
 import { PropertiesPanel } from "./PropertiesPanel";
+import { AiAgentPanel } from "./AiAgentPanel";
 import { ToolRail } from "./ToolRail";
 import { PagesBar } from "./PagesBar";
 import { DocumentSurface } from "./DocumentSurface";
@@ -349,12 +350,29 @@ export function EditorApp() {
       return next;
     });
   };
+  // The right panel has two main modes: "properties" (scene node properties) and "agent" (Cursor-style AI Agent).
+  const [rightTab, setRightTab] = useState<"properties" | "agent">("properties");
+
+  // Global Cmd+L / Ctrl+L shortcut to open and focus the Cursor-style AI Agent
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "l") {
+        e.preventDefault();
+        setRightTab("agent");
+        if (isCompact) setCompactPropsOpen(true);
+        else setPropsOpen(true);
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [isCompact]);
+
   // Resizable Properties panel: drag its left edge to a custom width, clamped and
   // persisted per-user. Default 288px (the former fixed w-72).
   const [panelWidth, setPanelWidth] = useState<number>(() => {
-    if (typeof window === "undefined") return 288;
+    if (typeof window === "undefined") return 320;
     const v = Number(window.localStorage.getItem("oc-properties-width"));
-    return Number.isFinite(v) && v >= 240 && v <= 520 ? v : 288;
+    return Number.isFinite(v) && v >= 280 && v <= 560 ? v : 320;
   });
   useEffect(() => {
     try { window.localStorage.setItem("oc-properties-width", String(panelWidth)); } catch { /* ignore */ }
@@ -1032,6 +1050,22 @@ export function EditorApp() {
             </IconButton>
           )}
 
+          {!isCompact && (
+            <button
+              onClick={() => {
+                setRightTab("agent");
+                if (isCompact) setCompactPropsOpen(true);
+                else setPropsOpen(true);
+              }}
+              title="Open Cursor-Style AI Agent (Cmd+L)"
+              className="flex items-center gap-1.5 rounded-lg bg-brand-50 border border-brand-200 px-2.5 py-1 text-xs font-semibold text-brand-700 hover:bg-brand-100 hover:border-brand-300 transition shadow-xs"
+            >
+              <Sparkles size={13} className="text-brand-600 animate-pulse" />
+              <span>AI Agent</span>
+              <kbd className="hidden md:inline-block text-[9px] bg-white border border-brand-200 px-1 rounded text-brand-600 font-mono">⌘L</kbd>
+            </button>
+          )}
+
           {!isCompact && <Sep />}
           {!isCompact && designId && canShare && (
             <Button variant="secondary" size="sm" onClick={() => setShareOpen(true)} title={tr("editor.share_this_design")}>
@@ -1187,9 +1221,31 @@ export function EditorApp() {
                 title={tr("editor.drag_to_resize")}
                 className="absolute start-0 top-0 z-20 h-full w-1.5 cursor-col-resize touch-none hover:bg-brand-200"
               />
-              {/* A thin header bar with the collapse toggle on the panel's inner
-                  (left) edge, so it stays put and never overlaps the content. */}
-              <div className="flex shrink-0 items-center border-b border-neutral-100 py-1 ps-2.5 pe-2">
+              {/* Header bar with Properties vs AI Agent tab switchers and collapse button. */}
+              <div className="flex shrink-0 items-center justify-between border-b border-neutral-200 bg-neutral-50/70 py-1 ps-2 pe-2">
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={() => setRightTab("properties")}
+                    className={`rounded-md px-2 py-1 text-xs font-semibold transition ${
+                      rightTab === "properties"
+                        ? "bg-white text-neutral-800 shadow-xs border border-neutral-200"
+                        : "text-neutral-500 hover:text-neutral-800 hover:bg-neutral-150"
+                    }`}
+                  >
+                    Properties
+                  </button>
+                  <button
+                    onClick={() => setRightTab("agent")}
+                    className={`flex items-center gap-1 rounded-md px-2 py-1 text-xs font-semibold transition ${
+                      rightTab === "agent"
+                        ? "bg-brand-600 text-white shadow-xs"
+                        : "text-brand-700 hover:bg-brand-100/70"
+                    }`}
+                  >
+                    <Sparkles size={12} className={rightTab === "agent" ? "animate-pulse" : ""} />
+                    AI Agent
+                  </button>
+                </div>
                 <button
                   onClick={toggleProps}
                   title={tr("editor.collapse_panel")}
@@ -1200,7 +1256,11 @@ export function EditorApp() {
                 </button>
               </div>
               <div className="oc-scroll min-h-0 flex-1 overflow-y-auto">
-                <PropertiesPanel workspaceId={workspaceId} />
+                {rightTab === "agent" ? (
+                  <AiAgentPanel workspaceId={workspaceId} onClose={toggleProps} />
+                ) : (
+                  <PropertiesPanel workspaceId={workspaceId} />
+                )}
               </div>
             </aside>
           ) : (
