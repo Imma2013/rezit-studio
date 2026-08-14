@@ -16,7 +16,7 @@ import { CodedError } from "./errors";
 import { putMediaAsset, getMediaAssets, deleteMediaAsset, updateMediaAssetRecord } from "./assetStore";
 import { callGeminiApi, generateAiImage, getStoredAiConfig, saveStoredAiConfig } from "./aiProvider";
 
-const baseUrl = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8005/api";
+const baseUrl = process.env.NEXT_PUBLIC_BACKEND_URL || "/api";
 const rawClient = new HyCanvasClient({ baseUrl, credentials: "include" });
 
 // Local Storage Keys

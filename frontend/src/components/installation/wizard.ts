@@ -4,7 +4,7 @@ import { CodedError } from "@/lib/errors";
 // only client-held state is the verified access secret below, kept in module
 // memory so a refresh or direct deep-link always restarts at step 1.
 
-const API_BASE = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8005/api";
+const API_BASE = process.env.NEXT_PUBLIC_BACKEND_URL || "/api";
 
 // The verified wizard access secret. Module memory survives client-side
 // navigation between steps but not a page load, by design.

@@ -22,10 +22,7 @@ const nextConfig: NextConfig = {
     unoptimized: true,
   },
   env: {
-    NEXT_PUBLIC_BACKEND_URL:
-      process.env.BUILD_DIST === "true"
-        ? "/api"
-        : process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8005/api",
+    NEXT_PUBLIC_BACKEND_URL: process.env.NEXT_PUBLIC_BACKEND_URL || "/api",
   },
   // Pretty editor URLs (/editor/<id>) are a SERVER rewrite to the exported
   // editor page: the Go static server does it in production, and this mirrors
