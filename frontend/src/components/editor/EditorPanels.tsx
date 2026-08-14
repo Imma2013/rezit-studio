@@ -1935,7 +1935,7 @@ function parseStringArray(reply: string, n: number): string[] | null {
   }
 }
 
-interface AssistantDeps {
+export interface AssistantDeps {
   workspaceId: string;
   voiceClause: string;
   brandPalette: string[];
@@ -1959,23 +1959,14 @@ function textContentOf(node: unknown): string {
     .map((p) => p.runs.map((r) => r.text).join("")).join("\n").trim();
 }
 
-/** The representative solid color of a page background fill (gradient -> first
- *  stop), or null when it isn't a color fill we can reason about. */
-function bgSolidColor(bg: unknown): Color | null {
-  const f = bg as { type?: string; color?: Color; stops?: { color: Color }[] } | undefined;
-  if (!f) return null;
-  if (f.type === "solid" && f.color) return f.color;
-  if (f.type === "gradient" && f.stops?.length) return f.stops[0].color;
-  return null;
+/** Solid color of a page background fill (for luminance/contrast checks). */
+function bgSolidColor(fill: unknown): Color | null {
+  if (!fill || typeof fill !== "object") return null;
+  const f = fill as { type?: string; color?: Color };
+  return f.type === "solid" && f.color ? f.color : null;
 }
 
-/** Whether a page's background reads as dark, so AI-added text should be light
- *  to stay legible. Judged from the background fill's luminance (gradient -> its
- *  first stop). Near-black default text is invisible on the dark posters the
- *  generator makes (a saturated theme color such as deep blue), which is why AI
- *  titles seemed to "not appear"; on those we switch to white. We only flip on
- *  positive evidence of a dark background (never a guess about an image), so a
- *  page over a light photo keeps the readable near-black default. */
+/** True when the page background is visibly dark (relative luminance < 0.4). */
 function pageIsDark(page: unknown): boolean {
   const c = bgSolidColor((page as { background?: unknown } | undefined)?.background);
   return c ? relativeLuminance(c) < 0.4 : false;
@@ -2016,7 +2007,7 @@ async function fetchAssistantOutline(workspaceId: string, dt: DesignType, prompt
 // actions return {} and are applied directly by runPlanStep. A precondition that
 // can't be met (no selection, empty text) returns {error} so the step is skipped
 // with a reason; genuine provider/policy errors throw and surface to the caller.
-async function resolvePlanStep(step: PlanStep, deps: AssistantDeps): Promise<{ payload?: ResolvedPayload; error?: string }> {
+export async function resolvePlanStep(step: PlanStep, deps: AssistantDeps): Promise<{ payload?: ResolvedPayload; error?: string }> {
   const a = step.args;
   const st = useEditor.getState();
   switch (step.action) {
@@ -2278,7 +2269,7 @@ async function resolvePlanStep(step: PlanStep, deps: AssistantDeps): Promise<{ p
 // changed (or read) the document successfully. Runs inside runAsTurn so all
 // steps collapse into a single undo entry. Generative steps consume the payload
 // pre-resolved by resolvePlanStep.
-function runPlanStep(step: PlanStep, ctx?: { brandTargets?: BrandFixTarget[]; payload?: ResolvedPayload }): boolean {
+export function runPlanStep(step: PlanStep, ctx?: { brandTargets?: BrandFixTarget[]; payload?: ResolvedPayload }): boolean {
   const st = useEditor.getState();
   const a = step.args;
   switch (step.action) {

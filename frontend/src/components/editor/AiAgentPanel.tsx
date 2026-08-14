@@ -43,6 +43,7 @@ import type { Node as DesignNode } from "@hc/schema";
 import { fromHex } from "@hc/color";
 import { useInspect } from "@/store/inspect";
 import { MousePointerClick, Crosshair, X } from "lucide-react";
+import { resolvePlanStep, runPlanStep, type AssistantDeps } from "./EditorPanels";
 
 interface ChatMessage {
   id: string;
@@ -216,7 +217,7 @@ export function AiAgentPanel({
     }
   };
 
-  // Execute Agent Plan
+  // Execute Agent Plan through full @hc/aistudio native engine
   const executePlan = async (messageId: string, plan: PlanStep[]) => {
     setIsProcessing(true);
     setMessages((prev) =>
@@ -224,99 +225,52 @@ export function AiAgentPanel({
     );
 
     try {
-      const updatedPlan = [...plan];
+      const fonts = brandKit?.fonts ?? [];
+      const byRole = (m: string) => fonts.find((f: any) => f.role?.toLowerCase().includes(m))?.fontFamily;
+      const heading = byRole("head") ?? byRole("title") ?? fonts[0]?.fontFamily;
+      const body = byRole("body") ?? byRole("text") ?? byRole("para") ?? fonts[fonts.length - 1]?.fontFamily;
 
-      for (let i = 0; i < updatedPlan.length; i++) {
-        const step = updatedPlan[i];
-        step.status = "planned";
+      const wsId = workspaceId || "ws-default";
+      const voiceClause = brandKit?.voice ? `Brand voice: ${JSON.stringify(brandKit.voice)}` : "";
+      const deps: AssistantDeps = {
+        workspaceId: wsId,
+        voiceClause,
+        brandPalette: brandColors,
+        brandFonts: { heading, body },
+        imageCapable: true,
+        sourceText: attachedContext || undefined,
+      };
 
-        try {
-          if (step.action === "generateImage") {
-            const imgUrl = await generateAiImage(String(step.args.prompt || ""));
-            runAsTurn(() => {
-              useEditor.getState().addImage(imgUrl);
-            });
-            step.status = "done";
-          } else if (step.action === "generateBackgroundImage") {
-            const imgUrl = await generateAiImage(String(step.args.prompt || ""), { aspect: "landscape" });
-            runAsTurn(() => {
-              useEditor.getState().addImage(imgUrl);
-            });
-            step.status = "done";
-          } else if (step.action === "setPageBackground") {
-            const c = fromHex(String(step.args.color || "#0f172a")) || fromHex("#0f172a")!;
-            runAsTurn(() => {
-              useEditor.getState().setPageBackground({ type: "solid", color: c });
-            });
-            step.status = "done";
-          } else if (step.action === "setSelectedText" || step.action === "writeText") {
-            const text = String(step.args.text || step.args.prompt || "");
-            runAsTurn(() => {
-              const st = useEditor.getState();
-              const page = st.doc.pages[st.activePage];
-              const selTextId = selection.find((id) => page?.children?.some((n: any) => n.id === id && n.type === "text"));
-              if (selTextId) {
-                st.setText(selTextId, text);
-              } else {
-                st.addTextBox(text);
-              }
-            });
-            step.status = "done";
-          } else if (step.action === "rewriteSelectedText") {
-            let newText = selectedText || "New Copy";
-            if (aiConfig.apiKey) {
-              newText = await callGeminiApi(
-                `Rewrite this copy: "${selectedText}". Instruction: ${step.args.instruction}`,
-              );
-            }
-            runAsTurn(() => {
-              const st = useEditor.getState();
-              const page = st.doc.pages[st.activePage];
-              const selTextId = selection.find((id) => page?.children?.some((n: any) => n.id === id && n.type === "text"));
-              if (selTextId) {
-                st.setText(selTextId, newText.trim());
-              } else {
-                st.addTextBox(newText.trim());
-              }
-            });
-            step.status = "done";
-          } else if (step.action === "addPage") {
-            runAsTurn(() => {
-              useEditor.getState().addPage();
-            });
-            step.status = "done";
-          } else if (step.action === "tidyLayout") {
-            runAsTurn(() => {
-              useEditor.getState().tidySelection();
-            });
-            step.status = "done";
-          } else if (step.action === "harmonize") {
-            step.status = "done";
-          } else if (step.action === "generateDesign") {
-            // High-impact multi-page design creation
-            const brief = String(step.args.prompt || "");
-            const heroUrl = await generateAiImage(brief, { aspect: "landscape" });
-            const darkBg = fromHex("#0f172a")!;
-            runAsTurn(() => {
-              const st = useEditor.getState();
-              st.setPageBackground({ type: "solid", color: darkBg });
-              st.addImage(heroUrl);
-              st.addTextBox(brief.toUpperCase(), { x: 100, y: 150 });
-            });
-            step.status = "done";
-          } else {
-            step.status = "done";
-          }
-        } catch (e: any) {
-          step.status = "failed";
-          step.reason = e?.message || "Execution failed";
-        }
+      const payloads: any[] = [];
+      const skips: (string | undefined)[] = [];
+
+      for (let i = 0; i < plan.length; i++) {
+        const r = await resolvePlanStep(plan[i], deps);
+        payloads[i] = r.payload;
+        skips[i] = r.error;
       }
+
+      runAsTurn(() => {
+        plan.forEach((step, i) => {
+          if (skips[i]) {
+            step.status = "failed";
+            step.reason = skips[i];
+            return;
+          }
+          try {
+            const ok = runPlanStep(step, { payload: payloads[i] });
+            step.status = ok ? "done" : "failed";
+          } catch (e: any) {
+            step.status = "failed";
+            step.reason = e?.message || "Execution failed";
+          }
+        });
+      });
 
       setMessages((prev) =>
         prev.map((m) =>
           m.id === messageId
-            ? { ...m, plan: updatedPlan, status: "completed" }
+            ? { ...m, plan: [...plan], status: "completed" }
             : m,
         ),
       );
