@@ -1,8 +1,7 @@
 // Next.js Serverless API Route: Fast Structured Design Outline with Gemini 3 Flash Preview
 import type { NextApiRequest, NextApiResponse } from "next";
 
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY || process.env.NEXT_PUBLIC_GEMINI_API_KEY || "AIzaSyBLXK6qJy7LHX27R7CO7Fi7l5L1c3d8YjQ";
-const MODEL = process.env.DEFAULT_GEMINI_MODEL || "gemini-3-flash-preview";
+const DEFAULT_MODEL = process.env.DEFAULT_GEMINI_MODEL || "gemini-3-flash-preview";
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== "POST") {
@@ -10,9 +9,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   try {
-    const { prompt, designType = "deck", brandClause = "", pageCount } = req.body || {};
+    const { prompt, designType = "deck", brandClause = "", pageCount, apiKey: clientApiKey } = req.body || {};
     if (!prompt) {
       return res.status(400).json({ error: "Missing prompt" });
+    }
+
+    const authHeader = req.headers.authorization;
+    const headerApiKey = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : undefined;
+    const apiKey = clientApiKey || headerApiKey || process.env.GEMINI_API_KEY || process.env.NEXT_PUBLIC_GEMINI_API_KEY || "";
+
+    if (!apiKey) {
+      return res.status(401).json({ error: "No Gemini API key provided. Please configure your key in AI Settings." });
     }
 
     const dt = String(designType).toLowerCase();
@@ -37,7 +44,7 @@ Return ONLY a valid JSON object matching this exact TypeScript structure:
 }
 Make the copywriting exceptionally polished, concise, and modern. No markdown fences.`;
 
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${GEMINI_API_KEY}`;
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${DEFAULT_MODEL}:generateContent?key=${apiKey}`;
 
     let response = await fetch(url, {
       method: "POST",
@@ -53,7 +60,7 @@ Make the copywriting exceptionally polished, concise, and modern. No markdown fe
 
     if (!response.ok) {
       // Fallback to gemini-2.5-flash
-      const fallbackUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`;
+      const fallbackUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
       response = await fetch(fallbackUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
