@@ -49,7 +49,7 @@ export async function callGeminiApi(
 
   // Try server-side route first for 100% security & speed
   try {
-    const res = await fetch("/api/ai/text", {
+    const res = await fetch("/api/ai/text/", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ prompt, system: systemPrompt, model: modelArg || "gemini-3-flash-preview" }),

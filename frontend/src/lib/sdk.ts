@@ -658,7 +658,7 @@ class RezitClient extends HyCanvasClient {
 
   async aiText(input: { workspaceId: string; prompt: string; system?: string; model?: string }): Promise<{ text: string }> {
     try {
-      const res = await fetch("/api/ai/text", {
+      const res = await fetch("/api/ai/text/", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(input),
@@ -675,7 +675,7 @@ class RezitClient extends HyCanvasClient {
 
   async aiOutline(input: { workspaceId: string; designType?: string; prompt: string; brandClause?: string; pageCount?: number }): Promise<any> {
     try {
-      const res = await fetch("/api/ai/outline", {
+      const res = await fetch("/api/ai/outline/", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(input),
@@ -723,7 +723,7 @@ class RezitClient extends HyCanvasClient {
 
   async aiImage(input: { workspaceId: string; prompt: string; size?: string }): Promise<{ image: string }> {
     try {
-      const res = await fetch("/api/ai/image", {
+      const res = await fetch("/api/ai/image/", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(input),
@@ -738,7 +738,7 @@ class RezitClient extends HyCanvasClient {
 
   async aiEditImage(input: { workspaceId: string; imageBase64: string; prompt: string; maskBase64?: string; size?: string }): Promise<{ image: string }> {
     try {
-      const res = await fetch("/api/ai/edit-image", {
+      const res = await fetch("/api/ai/edit-image/", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(input),
