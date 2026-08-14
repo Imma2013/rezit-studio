@@ -1,0 +1,173 @@
+"use strict";
+// Structural grid operations: insert/delete rows and columns, and sort a
+// range. Every operation is pure and returns a NEW Grid. Cells are stored
+// sparsely keyed "A1", so each op re-keys the affected cells and rewrites any
+// formula text whose references move (via @hc/formula's shiftRefs). A formula
+// reference to a deleted row/column becomes the literal "#REF!" in the text.
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.insertRow = insertRow;
+exports.deleteRow = deleteRow;
+exports.insertCol = insertCol;
+exports.deleteCol = deleteCol;
+exports.sortRange = sortRange;
+const formula_1 = require("@hc/formula");
+/** A cell is a formula cell when its `f` source begins with "=". */
+function isFormula(cell) {
+    return typeof cell.f === "string" && cell.f.startsWith("=");
+}
+/** Rewrite a cell's formula text for a structural edit, if it has one. */
+function rewriteFormula(cell, axis, at, delta) {
+    if (!isFormula(cell))
+        return cell;
+    return { ...cell, f: (0, formula_1.shiftRefs)(cell.f, { axis, at, delta }) };
+}
+/**
+ * Shared core for the four structural ops. Walks every populated cell, drops
+ * the ones on a deleted line, re-keys the rest after the shift, and rewrites
+ * formula references. Returns a brand new Grid.
+ */
+function restructure(grid, axis, at, delta) {
+    const cells = {};
+    for (const [key, cell] of Object.entries(grid.cells)) {
+        const ref = (0, formula_1.parseRef)(key);
+        const index = axis === "row" ? ref.row : ref.col;
+        if (delta < 0 && index === at) {
+            // This cell sat on the deleted row/column; drop it.
+            continue;
+        }
+        let col = ref.col;
+        let row = ref.row;
+        if (index >= at) {
+            if (axis === "row")
+                row += delta;
+            else
+                col += delta;
+        }
+        const rewritten = rewriteFormula(cell, axis, at, delta);
+        cells[(0, formula_1.cellKey)(col, row)] = rewritten;
+    }
+    const next = { ...grid, cells };
+    if (axis === "row") {
+        next.rows = Math.max(1, grid.rows + delta);
+    }
+    else {
+        next.cols = Math.max(1, grid.cols + delta);
+    }
+    return next;
+}
+/** Insert a blank row at 0-based index `at`, shifting lower rows down. */
+function insertRow(grid, at) {
+    return restructure(grid, "row", at, 1);
+}
+/** Delete the row at 0-based index `at`, shifting lower rows up. */
+function deleteRow(grid, at) {
+    return restructure(grid, "row", at, -1);
+}
+/** Insert a blank column at 0-based index `at`, shifting later columns right. */
+function insertCol(grid, at) {
+    return restructure(grid, "col", at, 1);
+}
+/** Delete the column at 0-based index `at`, shifting later columns left. */
+function deleteCol(grid, at) {
+    return restructure(grid, "col", at, -1);
+}
+/** Numeric coercion mirroring table.ts so blanks/strings sort consistently. */
+function toNum(v) {
+    if (typeof v === "number")
+        return v;
+    if (typeof v === "boolean")
+        return v ? 1 : 0;
+    if (typeof v === "string") {
+        const n = Number(v);
+        return Number.isNaN(n) ? NaN : n;
+    }
+    return NaN;
+}
+/** Comparison used for sorting: numbers numerically, else lexically, blanks last. */
+function compare(a, b) {
+    if ((0, formula_1.isError)(a) || (0, formula_1.isError)(b))
+        return 0;
+    const aBlank = a === null || a === undefined || a === "";
+    const bBlank = b === null || b === undefined || b === "";
+    if (aBlank && bBlank)
+        return 0;
+    if (aBlank)
+        return 1; // blanks sort last
+    if (bBlank)
+        return -1;
+    const an = toNum(a);
+    const bn = toNum(b);
+    if (!Number.isNaN(an) && !Number.isNaN(bn)) {
+        return an < bn ? -1 : an > bn ? 1 : 0;
+    }
+    const as = String(a);
+    const bs = String(b);
+    return as < bs ? -1 : as > bs ? 1 : 0;
+}
+/** The value used to sort a cell: its formula result is opaque here, so we
+ *  compare on the stored literal `v` (computed results are not part of the
+ *  model). Empty cells compare as blank. */
+function sortValue(cell) {
+    if (cell === undefined)
+        return null;
+    return cell.v ?? null;
+}
+/**
+ * Sort the rows within `range` (e.g. "A1:C10") by the column at 0-based offset
+ * `byCol` within the range, writing the reordered cells back into the same
+ * cells of the range (a destructive "Sort range", like Google Sheets). When
+ * `headerRow` is set the first row of the range stays fixed.
+ *
+ * The whole row block inside the range moves together (values and formats);
+ * formulas inside the range have their references rewritten so they keep
+ * pointing at the row they travel with. Pure: returns a new Grid.
+ */
+function sortRange(grid, range, byCol, dir, opts = {}) {
+    const r = (0, formula_1.parseRange)(range);
+    const top = r.start.row;
+    const left = r.start.col;
+    const width = r.end.col - r.start.col + 1;
+    const sortColIndex = left + byCol;
+    // Snapshot every row in the range as an array of (existing) cells.
+    const startRow = opts.headerRow ? top + 1 : top;
+    const rows = [];
+    for (let row = startRow; row <= r.end.row; row++) {
+        const rowCells = [];
+        for (let c = 0; c < width; c++) {
+            rowCells.push(grid.cells[(0, formula_1.cellKey)(left + c, row)]);
+        }
+        rows.push({ cells: rowCells, origRow: row });
+    }
+    const factor = dir === "desc" ? -1 : 1;
+    const sorted = rows
+        .map((row, i) => ({ row, i }))
+        .sort((x, y) => {
+        const cx = x.row.cells[sortColIndex - left];
+        const cy = y.row.cells[sortColIndex - left];
+        const c = compare(sortValue(cx), sortValue(cy));
+        return c !== 0 ? c * factor : x.i - y.i; // stable
+    })
+        .map((e) => e.row);
+    // Rebuild the grid: keep everything outside the sorted body, then write the
+    // reordered rows back into the body slots, shifting each row's formulas by
+    // the distance it moved.
+    const cells = { ...grid.cells };
+    // Clear the body region first so vacated cells become empty.
+    for (let row = startRow; row <= r.end.row; row++) {
+        for (let c = 0; c < width; c++) {
+            delete cells[(0, formula_1.cellKey)(left + c, row)];
+        }
+    }
+    sorted.forEach((snapshot, idx) => {
+        const destRow = startRow + idx;
+        for (let c = 0; c < width; c++) {
+            const cell = snapshot.cells[c];
+            if (cell === undefined)
+                continue;
+            // The cell (value, formula text, and formatting) travels with its row.
+            // Like Google Sheets' "Sort range", the formula text is carried verbatim.
+            cells[(0, formula_1.cellKey)(left + c, destRow)] = cell;
+        }
+    });
+    return { ...grid, cells };
+}

@@ -2,29 +2,61 @@
   "name": "rezit-studio",
   "version": "2.0.0",
   "private": true,
+  "description": "Rezit Studio v2 - AI-native creative platform for graphics, video, and social scheduling",
+  "workspaces": [
+    "packages/*",
+    "frontend"
+  ],
   "scripts": {
-    "dev": "next dev --turbopack",
-    "build": "next build",
-    "start": "next start",
-    "lint": "next lint",
-    "convex:dev": "convex dev"
-  },
-  "dependencies": {
-    "@google/genai": "^2.17.1",
-    "canvas-confetti": "^1.9.4",
-    "clsx": "^2.1.1",
-    "convex": "^1.17.0",
-    "firebase": "^11.0.0",
-    "lucide-react": "^0.468.0",
-    "next": "^15.1.0",
-    "react": "^19.0.0",
-    "react-dom": "^19.0.0"
+    "gen:theme": "node scripts/gen-theme.mjs",
+    "dev": "npm run dev -w frontend -- -p 3000",
+    "build": "npm run build:packages && npm run build:frontend",
+    "start": "npm run start -w frontend",
+    "build:packages": "npm run build --workspaces --if-present --workspace=packages/schema --workspace=packages/text --workspace=packages/color --workspace=packages/aistudio --workspace=packages/a11y --workspace=packages/geometry --workspace=packages/engine --workspace=packages/editor --workspace=packages/realtime --workspace=packages/brandkit --workspace=packages/shortcuts --workspace=packages/commandmenu --workspace=packages/export --workspace=packages/media --workspace=packages/stock --workspace=packages/templates --workspace=packages/authz --workspace=packages/formula --workspace=packages/sheets --workspace=packages/timeline --workspace=packages/audio --workspace=packages/whiteboard --workspace=packages/docs --workspace=packages/publishing --workspace=packages/website --workspace=packages/print --workspace=packages/sdk --workspace=packages/config --workspace=packages/ui",
+    "build:frontend": "npm run build -w frontend",
+    "lint": "concurrently \"npm run lint:backend\" \"npm run lint:frontend\" \"npm run gen:theme:check\" \"npm run lint:theme\"",
+    "lint:backend": "sh -c 'cd backend && go vet ./...'",
+    "lint:frontend": "npm run lint -w frontend",
+    "test": "concurrently \"npm run test:packages\" \"npm run test:backend\"",
+    "test:backend": "dotenv -e .env -- sh -c 'cd backend && go test ./...'",
+    "smoke:e2e": "node scripts/smoke-e2e.mjs",
+    "test:packages": "npm run test --workspaces --if-present --workspace=packages/schema --workspace=packages/text --workspace=packages/color --workspace=packages/aistudio --workspace=packages/a11y --workspace=packages/geometry --workspace=packages/engine --workspace=packages/editor --workspace=packages/realtime --workspace=packages/brandkit --workspace=packages/shortcuts --workspace=packages/commandmenu --workspace=packages/export --workspace=packages/media --workspace=packages/stock --workspace=packages/templates --workspace=packages/authz --workspace=packages/formula --workspace=packages/sheets --workspace=packages/timeline --workspace=packages/audio --workspace=packages/whiteboard --workspace=packages/docs --workspace=packages/publishing --workspace=packages/website --workspace=packages/print --workspace=packages/sdk --workspace=packages/config --workspace=packages/ui",
+    "db:migrate": "dotenv -e .env -- sh -c 'cd backend && go run ./cmd/migrate'",
+    "db:migrate:prod": "dotenv -e .env -- sh -c 'cd backend && go run ./cmd/migrate'",
+    "clean": "rm -rf node_modules frontend/node_modules packages/*/node_modules packages/*/dist packages/*/*.tsbuildinfo frontend/.next frontend/out frontend/*.tsbuildinfo bin dist",
+    "clean:install": "npm run clean && npm install",
+    "build:dist": "dotenv -e .env -- node scripts/build-dist.js",
+    "start:dist": "npm run build:dist && npm run start:dist:only",
+    "start:dist:only": "./dist/hycanvas",
+    "deploy": "npm run build:dist && ./dist/hycanvas service restart",
+    "bench:paint": "node scripts/bench-paint.mjs"
   },
   "devDependencies": {
-    "@types/canvas-confetti": "^1.9.0",
-    "@types/node": "^22.0.0",
-    "@types/react": "^19.0.0",
-    "@types/react-dom": "^19.0.0",
-    "typescript": "^5.7.0"
+    "@tailwindcss/oxide-linux-x64-gnu": "^4.3.3",
+    "concurrently": "^9.1.0",
+    "dotenv-cli": "^8.0.0",
+    "lightningcss-linux-x64-gnu": "^1.33.0",
+    "onnxruntime-web": "^1.27.0",
+    "puppeteer-core": "^25.5.0",
+    "shx": "^0.3.4"
+  },
+  "overrides": {
+    "dompurify": "^3.4.13",
+    "vite": "^7.3.6",
+    "esbuild": ">=0.28.1",
+    "shell-quote": ">=1.9.0",
+    "postcss": ">=8.5.18",
+    "nanoid": "^3.3.17",
+    "js-yaml": "^4.3.1",
+    "protobufjs": ">=7.6.5",
+    "sharp": ">=0.35.0",
+    "fast-uri": ">=3.1.5",
+    "brace-expansion": ">=5.0.9",
+    "minimatch@3": {
+      "brace-expansion": "1.1.18"
+    }
+  },
+  "engines": {
+    "node": ">=20.0.0"
   }
 }
