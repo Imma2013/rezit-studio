@@ -2,7 +2,6 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
-  output: "export",
   trailingSlash: true,
   // yjs must load as ONE module instance (two copies break instanceof checks
   // inside the CRDT bridge: yjs issue #438). @hc/realtime is built as ESM so
