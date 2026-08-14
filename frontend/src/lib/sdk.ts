@@ -13,6 +13,7 @@ import {
 } from "@hc/sdk";
 import { createBlankDesign, type DesignFile } from "@hc/schema";
 import { CodedError } from "./errors";
+import { putMediaAsset, getMediaAssets, deleteMediaAsset, updateMediaAssetRecord } from "./assetStore";
 
 const baseUrl = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8005/api";
 const rawClient = new HyCanvasClient({ baseUrl, credentials: "include" });
@@ -411,7 +412,7 @@ class RezitClient extends HyCanvasClient {
     try {
       return await super.listAssets(workspaceId, filter);
     } catch {
-      let list = getStoredAssets(workspaceId);
+      let list = await getMediaAssets(workspaceId);
       if (filter.folderId !== undefined) {
         if (filter.folderId === null || filter.folderId === "root") {
           list = list.filter((a) => !a.folderId);
@@ -430,40 +431,54 @@ class RezitClient extends HyCanvasClient {
     }
   }
 
-  async uploadAsset(workspaceId: string, input: { filename: string; dataBase64: string; folderId?: string | null; thumbnail?: string }): Promise<UploadedAsset> {
+  async uploadAsset(
+    workspaceId: string,
+    input: { filename: string; dataBase64?: string; file?: Blob | File; folderId?: string | null; thumbnail?: string }
+  ): Promise<UploadedAsset> {
     try {
-      return await super.uploadAsset(workspaceId, input);
+      if (input.dataBase64 && !input.file) {
+        return await super.uploadAsset(workspaceId, {
+          filename: input.filename,
+          dataBase64: input.dataBase64,
+          folderId: input.folderId,
+          thumbnail: input.thumbnail,
+        });
+      }
     } catch {
-      const ext = (input.filename.split(".").pop() || "").toLowerCase();
-      const isVideo = ["mp4", "webm", "mov", "m4v", "avi"].includes(ext);
-      const isAudio = ["mp3", "wav", "ogg", "m4a", "aac"].includes(ext);
-      const isSvg = ext === "svg";
-      const mimeType = isVideo ? "video/mp4" : isAudio ? "audio/mpeg" : isSvg ? "image/svg+xml" : ext === "png" ? "image/png" : "image/jpeg";
-      const kind = isVideo ? "video" : isAudio ? "audio" : "image";
-      
-      const isDataUrl = input.dataBase64.startsWith("data:");
-      const url = isDataUrl ? input.dataBase64 : `data:${mimeType};base64,${input.dataBase64}`;
-      const thumbnail = input.thumbnail || (isSvg || !isVideo && !isAudio ? url : null);
+      // fallback to IndexedDB store
+    }
+    const ext = (input.filename.split(".").pop() || "").toLowerCase();
+    const isVideo = ["mp4", "webm", "mov", "m4v", "avi", "mkv"].includes(ext);
+    const isAudio = ["mp3", "wav", "ogg", "m4a", "aac", "flac"].includes(ext);
+    const isSvg = ext === "svg";
+    const mimeType = isVideo
+      ? "video/mp4"
+      : isAudio
+      ? "audio/mpeg"
+      : isSvg
+      ? "image/svg+xml"
+      : ext === "png"
+      ? "image/png"
+      : "image/jpeg";
+    const kind = isVideo ? "video" : isAudio ? "audio" : isSvg ? "svg" : "image";
 
-      const asset: UploadedAsset = {
+    const payload = input.file || input.dataBase64 || "";
+    const asset = await putMediaAsset(
+      {
         id: `asset_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
         workspaceId,
         kind,
         filename: input.filename,
         mimeType,
-        byteSize: input.dataBase64.length,
+        byteSize: input.file?.size || input.dataBase64?.length || 1024,
         folderId: input.folderId || null,
         tags: [],
-        url,
-        thumbnail,
+        thumbnail: input.thumbnail || null,
         createdAt: new Date().toISOString(),
-      };
-
-      const existing = getStoredAssets();
-      existing.unshift(asset);
-      saveStoredAssets(existing);
-      return asset;
-    }
+      },
+      payload
+    );
+    return asset;
   }
 
   async importAssetFromUrl(workspaceId: string, url: string, folderId?: string | null): Promise<UploadedAsset> {
@@ -495,15 +510,8 @@ class RezitClient extends HyCanvasClient {
     try {
       return await super.updateAsset(id, patch);
     } catch {
-      const list = getStoredAssets();
-      const idx = list.findIndex((a) => a.id === id);
-      if (idx >= 0) {
-        if (patch.filename !== undefined) list[idx].filename = patch.filename;
-        if (patch.folderId !== undefined) list[idx].folderId = patch.folderId;
-        if (patch.tags !== undefined) list[idx].tags = patch.tags;
-        saveStoredAssets(list);
-        return list[idx];
-      }
+      const res = await updateMediaAssetRecord(id, patch);
+      if (res) return res;
       throw new Error("Asset not found");
     }
   }
@@ -512,8 +520,7 @@ class RezitClient extends HyCanvasClient {
     try {
       await super.deleteAsset(id);
     } catch {
-      const list = getStoredAssets().filter((a) => a.id !== id);
-      saveStoredAssets(list);
+      await deleteMediaAsset(id);
     }
   }
 
@@ -621,7 +628,7 @@ export const oc = new RezitClient({ baseUrl, credentials: "include" });
 /** Upload one asset with byte-level progress */
 export async function uploadAssetWithProgress(
   workspaceId: string,
-  input: { filename: string; dataBase64: string; folderId?: string | null; thumbnail?: string },
+  input: { filename: string; dataBase64?: string; file?: Blob | File; folderId?: string | null; thumbnail?: string },
   onProgress?: (pct: number) => void,
 ): Promise<UploadedAsset> {
   if (onProgress) onProgress(30);

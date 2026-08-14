@@ -1145,13 +1145,12 @@ export function UploadsPanel({ workspaceId }: { workspaceId: string | null }) {
     let limit: false | "workspace" | "account" | "size" = false;
     for (const it of items) {
       try {
-        const dataUrl = await readAsDataUrl(it.file);
         // Client-side thumbnail for the grid (perf): keeps full bytes server-side
         // but serves a tiny preview. Optional, so a decode failure is non-fatal.
         const thumbnail = await makeThumbnail(it.file);
         const asset = await uploadAssetWithProgress(
           workspaceId,
-          { filename: it.file.name, dataBase64: dataUrl, folderId, thumbnail },
+          { filename: it.file.name, file: it.file, folderId, thumbnail },
           (pct) => setPct(it.id, pct),
         );
         ok++;
@@ -1184,16 +1183,11 @@ export function UploadsPanel({ workspaceId }: { workspaceId: string | null }) {
   const uploadBlob = useCallback(async (blob: Blob, filename: string) => {
     if (!workspaceId) return;
     try {
-      const dataUrl = await readAsDataUrl(blob);
-      await oc.uploadAsset(workspaceId, { filename, dataBase64: dataUrl.split(",")[1] ?? "", folderId });
+      await uploadAssetWithProgress(workspaceId, { filename, file: blob, folderId });
       toast.success(tr("editor.recording_saved"));
       await refresh();
-    } catch (e) {
-      const kind = quotaErrorKind(e);
-      if (kind === "account") toast.error(tr("editor.your_account_storage_limit_is_reached"));
-      else if (kind === "workspace") toast.error(tr("editor.storage_quota_reached"));
-      else if (kind === "size") toast.error(tr("editor.recording_too_large_the_server_or_its_revers"));
-      else toast.error(tr("editor.couldnt_save_the_recording"));
+    } catch {
+      toast.error(tr("editor.couldnt_save_the_recording"));
     }
   }, [workspaceId, folderId, refresh, toast]);
 

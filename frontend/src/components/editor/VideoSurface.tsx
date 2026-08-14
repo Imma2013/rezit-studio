@@ -477,6 +477,10 @@ export function VideoSurface(props: { workspaceId?: string; designId?: string })
         media
           .filter((a) => a.kind === "video" && !proxyOkRef.current.get(a.id))
           .map(async (a) => {
+            if (/^(blob:|data:)/.test(a.url)) {
+              proxyOkRef.current.set(a.id, true);
+              return;
+            }
             try {
               const res = await fetch(proxyUrlFor(a), { method: "HEAD", credentials: "include" });
               proxyOkRef.current.set(a.id, res.ok);
@@ -492,6 +496,7 @@ export function VideoSurface(props: { workspaceId?: string; designId?: string })
             .filter(
               (a) =>
                 a.kind === "video" &&
+                !/^(blob:|data:)/.test(a.url) &&
                 (a.byteSize ?? 0) >= PROXY_MIN_BYTES &&
                 !proxyOkRef.current.get(a.id),
             )
@@ -523,6 +528,10 @@ export function VideoSurface(props: { workspaceId?: string; designId?: string })
         [...proxyPending].map(async (id) => {
           const a = assetsRef.current.get(id);
           if (!a) return id;
+          if (/^(blob:|data:)/.test(a.url)) {
+            proxyOkRef.current.set(id, true);
+            return null;
+          }
           try {
             const res = await fetch(proxyUrlFor(a), { method: "HEAD", credentials: "include" });
             if (res.ok) {
@@ -565,17 +574,9 @@ export function VideoSurface(props: { workspaceId?: string; designId?: string })
       setUploadPct(0);
       try {
         for (const file of Array.from(files)) {
-          // Base64 JSON upload (the direct-upload pipeline lands with the
-          // feat/direct-uploads branch; switch to it once merged).
-          const dataUrl = await new Promise<string>((resolve, reject) => {
-            const fr = new FileReader();
-            fr.onload = () => resolve(String(fr.result));
-            fr.onerror = () => reject(new CodedError("errors.file_read_failed", "Could not read the file."));
-            fr.readAsDataURL(file);
-          });
           await uploadAssetWithProgress(
             workspaceId,
-            { filename: file.name, dataBase64: dataUrl.split(",")[1] ?? "" },
+            { filename: file.name, file },
             (pct: number) => setUploadPct(pct),
           );
         }

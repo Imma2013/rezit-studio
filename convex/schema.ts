@@ -83,4 +83,18 @@ export default defineSchema({
     ),
     createdAt: v.optional(v.number()),
   }).index('by_owner_schedule', ['ownerId', 'scheduledAt']),
+
+  assets: defineTable({
+    storageId: v.id('_storage'),
+    workspaceId: v.string(),
+    filename: v.string(),
+    mimeType: v.string(),
+    byteSize: v.number(),
+    kind: v.union(v.literal('image'), v.literal('video'), v.literal('audio'), v.literal('svg')),
+    folderId: v.optional(v.union(v.string(), v.null())),
+    thumbnailUrl: v.optional(v.union(v.string(), v.null())),
+    url: v.string(),
+    tags: v.array(v.string()),
+    createdAt: v.number(),
+  }).index('by_workspace', ['workspaceId']),
 });
