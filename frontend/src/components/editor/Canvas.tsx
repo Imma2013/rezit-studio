@@ -26,6 +26,8 @@ import { CropOverlay } from "./CropOverlay";
 import { MaskRefineOverlay } from "./MaskRefineOverlay";
 import { PresenceOverlay } from "./PresenceOverlay";
 import { CommentPins } from "./CommentPins";
+import { FloatingAiPopover } from "./FloatingAiPopover";
+import { useInspect } from "@/store/inspect";
 import { getRealtimeClient } from "@/lib/useRealtime";
 import { serverNow } from "@/lib/realtime";
 import { usePresence } from "@/store/presence";
@@ -1886,6 +1888,21 @@ export function Canvas() {
     }
 
     if (hit) {
+      if (useInspect.getState().inspectMode) {
+        const pageNode = store.doc.pages[store.activePage];
+        const target = pageNode?.children?.find((n: any) => n.id === hit.id) as any;
+        const label = target?.text ? `[Text] "${target.text.slice(0, 25)}..."` : `[${target?.type || "Element"}]`;
+        const aabb = worldAABB(store.doc, hit.id);
+        const screenRect = aabb ? {
+          x: api.toScreen({ x: aabb.x, y: aabb.y }).x,
+          y: api.toScreen({ x: aabb.x, y: aabb.y }).y,
+          width: aabb.width * store.viewport.zoom,
+          height: aabb.height * store.viewport.zoom,
+        } : null;
+        useInspect.getState().setTargetNode(hit.id, label, screenRect);
+        store.select([hit.id]);
+        return;
+      }
       // Select the group as a unit on a single click (double-click enters it).
       const selId = topAncestorId(store.doc, hit.id);
       // Alt/Option-drag duplicates the selection and drags the copies.
@@ -2235,6 +2252,26 @@ export function Canvas() {
       // Idle hover: show a move cursor + faint outline over a draggable node
       //. Outline targets the same top-level node a click selects.
       const hit = api.scene()?.hitTest(api.toPage(localPoint(e)));
+      
+      if (useInspect.getState().inspectMode) {
+        if (hit) {
+          const store = useEditor.getState();
+          const page = store.doc.pages[store.activePage];
+          const node = page?.children?.find((n: any) => n.id === hit.id) as any;
+          const label = node?.text ? `[Text] "${node.text.slice(0, 20)}..."` : `[${node?.type || "Element"}]`;
+          const aabb = worldAABB(store.doc, hit.id);
+          const screenRect = aabb ? {
+            x: api.toScreen({ x: aabb.x, y: aabb.y }).x,
+            y: api.toScreen({ x: aabb.x, y: aabb.y }).y,
+            width: aabb.width * store.viewport.zoom,
+            height: aabb.height * store.viewport.zoom,
+          } : null;
+          useInspect.getState().setHoveredNode(hit.id, label, screenRect);
+        } else {
+          useInspect.getState().setHoveredNode(null);
+        }
+      }
+
       const over = !!hit;
       if (over !== hoverMoveRef.current) {
         hoverMoveRef.current = over;
@@ -3514,6 +3551,29 @@ export function Canvas() {
           </div>
         );
       })()}
+
+      {/* Visual Inspect Mode Hover Box & Floating Click-to-Edit Popover */}
+      {useInspect((s) => s.inspectMode) && (() => {
+        const hRect = useInspect.getState().hoveredNodeRect;
+        const hLabel = useInspect.getState().hoveredNodeLabel;
+        if (!hRect) return null;
+        return (
+          <div
+            className="pointer-events-none absolute z-40 rounded border-2 border-brand-500 bg-brand-500/10 shadow-lg transition-all"
+            style={{
+              left: hRect.x,
+              top: hRect.y,
+              width: hRect.width,
+              height: hRect.height,
+            }}
+          >
+            <span className="absolute -top-6 start-0 rounded bg-brand-600 px-2 py-0.5 text-[10px] font-bold text-white shadow">
+              ✨ {hLabel} - Click to Edit with AI
+            </span>
+          </div>
+        );
+      })()}
+      <FloatingAiPopover />
     </div>
   );
 }

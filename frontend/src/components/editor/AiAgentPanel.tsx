@@ -41,6 +41,8 @@ import {
 import { oc, resolveAssetUrl } from "@/lib/sdk";
 import type { Node as DesignNode } from "@hc/schema";
 import { fromHex } from "@hc/color";
+import { useInspect } from "@/store/inspect";
+import { MousePointerClick, Crosshair, X } from "lucide-react";
 
 interface ChatMessage {
   id: string;
@@ -326,6 +328,24 @@ export function AiAgentPanel({
     }
   };
 
+  // Visual Inspect Mode
+  const inspectMode = useInspect((s) => s.inspectMode);
+  const toggleInspectMode = useInspect((s) => s.toggleInspectMode);
+  const targetNodeLabel = useInspect((s) => s.targetNodeLabel);
+  const closePopover = useInspect((s) => s.closePopover);
+
+  // Global Cmd+Shift+C shortcut for Click-to-Edit Inspect Mode
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === "c") {
+        e.preventDefault();
+        toggleInspectMode();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [toggleInspectMode]);
+
   return (
     <div className="flex h-full flex-col bg-surface select-none">
       {/* Agent Top Header */}
@@ -344,7 +364,19 @@ export function AiAgentPanel({
           </div>
         </div>
 
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-1.5">
+          <button
+            onClick={toggleInspectMode}
+            title={inspectMode ? "Exit Inspect Mode (Cmd+Shift+C)" : "Click-to-Edit: Click any canvas element to edit with AI (Cmd+Shift+C)"}
+            className={`flex items-center gap-1 rounded-md px-2 py-1 text-[11px] font-semibold transition ${
+              inspectMode
+                ? "bg-amber-500 text-white shadow-xs animate-pulse"
+                : "text-neutral-600 hover:bg-neutral-200/70 hover:text-neutral-900 border border-neutral-200"
+            }`}
+          >
+            <MousePointerClick size={12} />
+            <span>{inspectMode ? "Inspecting" : "Inspect"}</span>
+          </button>
           <button
             onClick={() => setShowConfigModal(true)}
             title="Configure AI Models & Keys"
@@ -521,6 +553,23 @@ export function AiAgentPanel({
 
       {/* Agent Input Box */}
       <div className="shrink-0 border-t border-neutral-200 bg-white p-2.5">
+        {targetNodeLabel && (
+          <div className="mb-2 flex items-center justify-between rounded-lg bg-brand-50 border border-brand-200 px-2.5 py-1 text-[11px] text-brand-800">
+            <span className="flex items-center gap-1.5 font-medium truncate">
+              <span className="grid h-4 w-4 place-items-center rounded-full bg-brand-600 text-[9px] text-white">🎯</span>
+              <span>Targeting:</span>
+              <span className="font-mono font-bold">{targetNodeLabel}</span>
+            </span>
+            <button
+              onClick={() => closePopover()}
+              title="Clear target selection"
+              className="text-brand-500 hover:text-brand-800"
+            >
+              <X size={13} />
+            </button>
+          </div>
+        )}
+
         <div className="flex flex-col gap-1.5 rounded-xl border border-neutral-300 bg-surface p-2 shadow-inner focus-within:border-brand-500 focus-within:ring-2 focus-within:ring-brand-100">
           <textarea
             ref={inputRef}
@@ -532,7 +581,11 @@ export function AiAgentPanel({
                 void handleSendPrompt();
               }
             }}
-            placeholder="Ask AI Agent to edit canvas, create decks, or generate images..."
+            placeholder={
+              targetNodeLabel
+                ? `Ask AI to edit ${targetNodeLabel} (e.g. rewrite, restyle, replace)...`
+                : "Ask AI Agent to edit canvas, create decks, or generate images..."
+            }
             rows={2}
             className="w-full resize-none bg-transparent text-xs text-neutral-800 placeholder:text-neutral-400 focus:outline-none"
           />
