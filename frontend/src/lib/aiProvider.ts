@@ -160,6 +160,22 @@ export async function generateAiImage(
   return await generatePollinationsImage(prompt, width, height);
 }
 
+function cleanJsonPayload(raw: string): string {
+  // Strip reasoning thoughts
+  let s = raw.replace(/<thought>[\s\S]*?<\/thought>/gi, "").trim();
+  // Strip markdown fences
+  if (s.startsWith("```")) {
+    s = s.replace(/^```[a-z]*\n?/i, "").replace(/```\s*$/i, "").trim();
+  }
+  // Find JSON boundary
+  const firstBrace = s.indexOf("{");
+  const lastBrace = s.lastIndexOf("}");
+  if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+    return s.slice(firstBrace, lastBrace + 1);
+  }
+  return s;
+}
+
 /** Generates a complete Cursor-Style Agent Plan for the current canvas context */
 export async function planCursorAgentTurn(
   userPrompt: string,
@@ -179,7 +195,11 @@ export async function planCursorAgentTurn(
   const tools = toolCatalog();
   const toolSummary = tools.map((t) => `- ${t.name}: ${t.description} (params: ${t.params.map((p) => `${p.name}:${p.type}${p.required ? '!' : ''}`).join(', ') || 'none'})`).join('\n');
 
-  const system = `You are the AI Creative Agent inside Rezit Studio (a modern graphic & video design platform like Canva + Figma + Cursor).
+  const hasSelection = context.selectionCount > 0;
+  const isTargetingText = hasSelection && context.selectedNodeTypes.includes("text");
+  const isTargetingImage = hasSelection && context.selectedNodeTypes.includes("image");
+
+  const system = `You are the AI Creative Agent inside Rezit Studio (like Cursor + Figma for interactive design).
 You have full tool-calling capabilities to create, edit, rebrand, and layout designs on the canvas.
 
 CURRENT CANVAS CONTEXT:
@@ -193,15 +213,15 @@ ${context.attachedSourceText ? `- Attached Source Text: ${context.attachedSource
 AVAILABLE TOOL CATALOG:
 ${toolSummary}
 
-RULES:
-1. Understand the user's intent. If they want to create something from scratch (e.g. "make a pitch deck", "create an instagram post"), plan "generateDesign".
-2. If they want to edit or rewrite text, plan "setSelectedText" or "rewriteSelectedText".
-3. If they want background changes, plan "setPageBackground" or "generateBackgroundImage".
-4. If they want images, plan "generateImage" or "editSelectedImage".
-5. Return ONLY a JSON object matching this schema:
+CRITICAL RULES:
+1. ${hasSelection ? 'AN ELEMENT IS CURRENTLY SELECTED. Focus ONLY on modifying the selected element or the current slide. DO NOT plan "generateDesign" or create new slides unless the user explicitly commands "create a whole new deck from scratch".' : 'If the user wants a full deck from scratch (e.g. "make a pitch deck"), plan "generateDesign".'}
+2. If the user wants to edit, rewrite, or shorten text, plan "rewriteSelectedText" or "setSelectedText".
+3. If the user wants to transform or remove the background of an image, plan "editSelectedImage".
+4. If the user wants layout alignment or spacing fixes, plan "tidyLayout" or "harmonize".
+5. Return ONLY a valid JSON object matching this schema without any thinking or markdown fences:
 {
-  "reply": "Short natural language explanation of what you are doing (1-2 sentences)",
-  "clarify": "Optional question if prompt is completely ambiguous, otherwise omit",
+  "reply": "Crisp 1-sentence explanation of what you did",
+  "clarify": "Optional question if ambiguous, otherwise omit",
   "plan": [
     {
       "action": "toolName",
@@ -214,13 +234,26 @@ RULES:
   const cfg = getStoredAiConfig();
   if (cfg.apiKey || cfg.provider === "gemini") {
     try {
-      const rawJson = await callGeminiApi(userPrompt, system, { jsonMode: true, temperature: 0.2 });
-      const parsed = JSON.parse(rawJson);
+      const rawResponse = await callGeminiApi(userPrompt, system, { jsonMode: true, temperature: 0.2 });
+      const cleanJson = cleanJsonPayload(rawResponse);
+      const parsed = JSON.parse(cleanJson);
       if (parsed && Array.isArray(parsed.plan)) {
+        // Safety guard: prevent accidental deck generation if element is selected
+        let planSteps = parsed.plan;
+        if (hasSelection) {
+          planSteps = planSteps.filter((s: { action: string }) => s.action !== "generateDesign");
+          if (planSteps.length === 0) {
+            if (isTargetingText) {
+              planSteps = [{ action: "rewriteSelectedText", args: { instruction: userPrompt } }];
+            } else if (isTargetingImage) {
+              planSteps = [{ action: "editSelectedImage", args: { prompt: userPrompt } }];
+            }
+          }
+        }
         return {
-          reply: parsed.reply || "I've created a plan to update your design.",
+          reply: parsed.reply || "Updated your design with the requested changes.",
           clarify: parsed.clarify,
-          plan: parsed.plan.map((s: { action: string; args?: Record<string, unknown> }) => ({
+          plan: planSteps.map((s: { action: string; args?: Record<string, unknown> }) => ({
             action: s.action,
             args: s.args || {},
             status: "planned" as const,
@@ -232,7 +265,7 @@ RULES:
     }
   }
 
-  // Deterministic local smart heuristic planner if offline or no key configured
+  // Deterministic local smart heuristic planner
   return fallbackHeuristicPlanner(userPrompt, context);
 }
 
@@ -242,7 +275,21 @@ function fallbackHeuristicPlanner(
 ): { reply: string; plan: PlanStep[] } {
   const p = prompt.toLowerCase();
   const plan: PlanStep[] = [];
+  const hasSelection = context.selectionCount > 0;
+  const isText = hasSelection && context.selectedNodeTypes.includes("text");
+  const isImage = hasSelection && context.selectedNodeTypes.includes("image");
 
+  // 1. If element is selected, prioritize targeted micro-edits
+  if (isText) {
+    plan.push({ action: "rewriteSelectedText", args: { instruction: prompt }, status: "planned" });
+    return { reply: "Updated the selected text.", plan };
+  }
+  if (isImage) {
+    plan.push({ action: "editSelectedImage", args: { prompt }, status: "planned" });
+    return { reply: "Updated the selected image.", plan };
+  }
+
+  // 2. Global actions
   if (p.includes("deck") || p.includes("presentation") || p.includes("pitch") || p.includes("slide")) {
     plan.push({ action: "generateDesign", args: { prompt, designType: "deck" }, status: "planned" });
     return { reply: "Generating a custom slide deck based on your prompt.", plan };
@@ -260,10 +307,6 @@ function fallbackHeuristicPlanner(
     return { reply: "Generating a full-bleed background scene.", plan };
   }
   if (p.includes("rewrite") || p.includes("copy") || p.includes("headline") || p.includes("text")) {
-    if (context.selectionCount > 0 && context.selectedNodeTypes.includes("text")) {
-      plan.push({ action: "rewriteSelectedText", args: { instruction: prompt }, status: "planned" });
-      return { reply: "Rewriting the selected text to match your instructions.", plan };
-    }
     plan.push({ action: "writeText", args: { prompt }, status: "planned" });
     return { reply: "Writing new copy and placing it onto the design.", plan };
   }
@@ -273,7 +316,7 @@ function fallbackHeuristicPlanner(
     return { reply: "Aligning layout and harmonizing typography and colors.", plan };
   }
 
-  // Default design generation
-  plan.push({ action: "generateDesign", args: { prompt }, status: "planned" });
-  return { reply: "Building your design request on the canvas.", plan };
+  // 3. Fallback: slide/page layout update, NEVER blow away whole deck
+  plan.push({ action: "tidyLayout", args: {}, status: "planned" });
+  return { reply: "Adjusted layout and styling on the active slide.", plan };
 }
