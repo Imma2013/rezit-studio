@@ -194,18 +194,32 @@ export function FloatingAiPopover({
         ) : isImage ? (
           <>
             <button
-              onClick={() => handleExecute("3D glassmorphic modern tech mockup")}
+              onClick={() => handleExecute("remove background and make transparent cutout sticker")}
               disabled={loading}
-              className="rounded bg-neutral-100 px-1.5 py-0.5 text-[10px] font-medium text-neutral-600 hover:bg-brand-50 hover:text-brand-700"
+              className="rounded bg-brand-50 px-1.5 py-0.5 text-[10px] font-semibold text-brand-700 hover:bg-brand-100"
             >
-              🖼️ 3D Tech Style
+              🪄 Remove BG
             </button>
             <button
-              onClick={() => handleExecute("minimalist flat vector logo icon")}
+              onClick={() => handleExecute("3D claymation isometric render, cute studio lighting")}
               disabled={loading}
               className="rounded bg-neutral-100 px-1.5 py-0.5 text-[10px] font-medium text-neutral-600 hover:bg-brand-50 hover:text-brand-700"
             >
-              ✨ Vector Logo
+              🎨 3D Clay
+            </button>
+            <button
+              onClick={() => handleExecute("cyberpunk neon purple aesthetic, cinematic lighting")}
+              disabled={loading}
+              className="rounded bg-neutral-100 px-1.5 py-0.5 text-[10px] font-medium text-neutral-600 hover:bg-brand-50 hover:text-brand-700"
+            >
+              🌆 Cyberpunk
+            </button>
+            <button
+              onClick={() => handleExecute("vintage 35mm film photograph, moody retro grain")}
+              disabled={loading}
+              className="rounded bg-neutral-100 px-1.5 py-0.5 text-[10px] font-medium text-neutral-600 hover:bg-brand-50 hover:text-brand-700"
+            >
+              📸 35mm Film
             </button>
           </>
         ) : (
