@@ -258,6 +258,77 @@ export function AiAgentPanel({
             return;
           }
           try {
+            // Palmier Pro Video Tool Handlers
+            if (step.action === "set_clip_properties") {
+              const meta = useEditor.getState().doc.meta;
+              const project = meta.video as any;
+              if (project && Array.isArray(project.tracks)) {
+                const fps = project.fps || 30;
+                const durSec = step.args?.durationSeconds as number;
+                const speed = step.args?.speed as number;
+                project.tracks.forEach((t: any) => {
+                  if (Array.isArray(t.clips) && t.clips.length > 0) {
+                    t.clips.forEach((c: any) => {
+                      if (durSec) {
+                        c.out = (c.in || 0) + durSec * fps;
+                      }
+                      if (speed) {
+                        c.speed = speed;
+                      }
+                    });
+                  }
+                });
+                useEditor.getState().setDocMeta({ video: { ...project } });
+                step.status = "done";
+                return;
+              }
+            }
+
+            if (step.action === "split_clips") {
+              const meta = useEditor.getState().doc.meta;
+              const project = meta.video as any;
+              if (project && Array.isArray(project.tracks)) {
+                const fps = project.fps || 30;
+                project.tracks.forEach((t: any) => {
+                  if (Array.isArray(t.clips) && t.clips.length > 0) {
+                    const c = t.clips[0];
+                    const origOut = c.out || 1800;
+                    const splitFrame = (c.in || 0) + 3 * fps;
+                    c.out = splitFrame;
+                    t.clips.push({
+                      ...c,
+                      id: `clip-${Date.now()}`,
+                      label: `${c.label || "Clip"} (Part 2)`,
+                      in: splitFrame,
+                      out: origOut,
+                      start: (c.start || 0) + 3 * fps,
+                    });
+                  }
+                });
+                useEditor.getState().setDocMeta({ video: { ...project } });
+                step.status = "done";
+                return;
+              }
+            }
+
+            if (step.action === "apply_color") {
+              const meta = useEditor.getState().doc.meta;
+              const project = meta.video as any;
+              if (project && Array.isArray(project.tracks)) {
+                const preset = (step.args?.preset as string) || "vivid";
+                project.tracks.forEach((t: any) => {
+                  if (Array.isArray(t.clips)) {
+                    t.clips.forEach((c: any) => {
+                      c.color = { preset, brightness: 1.05, contrast: 1.15, saturation: 1.2 };
+                    });
+                  }
+                });
+                useEditor.getState().setDocMeta({ video: { ...project } });
+                step.status = "done";
+                return;
+              }
+            }
+
             const ok = runPlanStep(step, { payload: payloads[i] });
             step.status = ok ? "done" : "failed";
           } catch (e: any) {

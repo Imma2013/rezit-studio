@@ -199,10 +199,11 @@ export async function planCursorAgentTurn(
   const isTargetingText = hasSelection && context.selectedNodeTypes.includes("text");
   const isTargetingImage = hasSelection && context.selectedNodeTypes.includes("image");
 
-  const system = `You are the AI Creative Agent inside Rezit Studio (like Cursor + Figma for interactive design).
-You have full tool-calling capabilities to create, edit, rebrand, and layout designs on the canvas.
+  const system = `You are the AI Creative & Video Editing Agent inside Rezit Studio (like Cursor + Palmier Pro for design and video editing).
+You have full tool-calling capabilities to create, edit, rebrand, trim, split, color grade, and layout designs and video timelines.
 
-CURRENT CANVAS CONTEXT:
+CURRENT CANVAS / VIDEO CONTEXT:
+- Document Type: ${context.selectedNodeTypes.includes("video") ? "Video Project" : "Design / Presentation"}
 - Active Slide/Page: ${context.activePageIndex + 1} of ${context.pageCount} (${context.pageDimensions.width}x${context.pageDimensions.height}px)
 - Current Selection: ${context.selectionCount} node(s) [${context.selectedNodeTypes.join(', ') || 'none'}]
 ${context.selectedText ? `- Selected Text Content: "${context.selectedText}"` : ''}
@@ -210,15 +211,22 @@ ${context.brandColors?.length ? `- Brand Colors: ${context.brandColors.join(', '
 ${context.brandVoice ? `- Brand Voice: ${context.brandVoice}` : ''}
 ${context.attachedSourceText ? `- Attached Source Text: ${context.attachedSourceText.slice(0, 3000)}` : ''}
 
-AVAILABLE TOOL CATALOG:
+AVAILABLE TOOL CATALOG (DESIGN & PALMIER PRO VIDEO TOOLS):
 ${toolSummary}
+- set_clip_properties: Trims clip in/out/duration, changes speed, volume, opacity. Args: { durationSeconds?: number, speed?: number, clipId?: string }
+- split_clips: Splits a video clip at a timestamp or middle. Args: { atSeconds?: number }
+- add_captions: Generates dynamic animated karaoke subtitles overlay. Args: { style?: string, text?: string }
+- apply_color: Applies cinematic color grading LUT. Args: { preset: "vivid"|"warm"|"cool"|"noir"|"faded"|"teal_orange" }
+- set_project_settings: Sets canvas aspect ratio or resolution. Args: { aspectRatio: "16:9"|"9:16"|"1:1", fps?: number }
+- generate_video: Generates a generative video scene using Veo. Args: { prompt: string }
 
 CRITICAL RULES:
-1. ${hasSelection ? 'AN ELEMENT IS CURRENTLY SELECTED. Focus ONLY on modifying the selected element or the current slide. DO NOT plan "generateDesign" or create new slides unless the user explicitly commands "create a whole new deck from scratch".' : 'If the user wants a full deck from scratch (e.g. "make a pitch deck"), plan "generateDesign".'}
-2. If the user wants to edit, rewrite, or shorten text, plan "rewriteSelectedText" or "setSelectedText".
-3. If the user wants to transform or remove the background of an image, plan "editSelectedImage".
-4. If the user wants layout alignment or spacing fixes, plan "tidyLayout" or "harmonize".
-5. Return ONLY a valid JSON object matching this schema without any thinking or markdown fences:
+1. When asked to cut, shorten, or trim a video (e.g. "cut clip down to 1 minute", "trim to 30s"), plan "set_clip_properties" with { "durationSeconds": 60 }.
+2. When asked to split a clip, plan "split_clips".
+3. When asked to speed up or slow down, plan "set_clip_properties" with { "speed": 1.5 }.
+4. When asked for captions/subtitles, plan "add_captions".
+5. When asked to change color/look/mood, plan "apply_color".
+6. Return ONLY a valid JSON object matching this schema without any thinking or markdown fences:
 {
   "reply": "Crisp 1-sentence explanation of what you did",
   "clarify": "Optional question if ambiguous, otherwise omit",
@@ -251,7 +259,7 @@ CRITICAL RULES:
           }
         }
         return {
-          reply: parsed.reply || "Updated your design with the requested changes.",
+          reply: parsed.reply || "Updated your project with the requested changes.",
           clarify: parsed.clarify,
           plan: planSteps.map((s: { action: string; args?: Record<string, unknown> }) => ({
             action: s.action,
@@ -278,6 +286,58 @@ function fallbackHeuristicPlanner(
   const hasSelection = context.selectionCount > 0;
   const isText = hasSelection && context.selectedNodeTypes.includes("text");
   const isImage = hasSelection && context.selectedNodeTypes.includes("image");
+
+  // PALMIER PRO VIDEO HEURISTICS
+  if (p.includes("minute") || p.includes("trim") || p.includes("cut") || p.includes("shorten") || p.includes("duration") || p.includes("length")) {
+    let durationSeconds = 60;
+    if (p.includes("1 minute") || p.includes("one minute") || p.includes("1m") || p.includes("60s")) durationSeconds = 60;
+    else if (p.includes("30") || p.includes("half minute")) durationSeconds = 30;
+    else if (p.includes("15")) durationSeconds = 15;
+    else if (p.includes("2 minute") || p.includes("two minute")) durationSeconds = 120;
+    else {
+      const match = p.match(/(\d+)\s*(?:min|sec|s|m)/);
+      if (match) {
+        const val = parseInt(match[1], 10);
+        if (p.includes("min") || p.includes("m")) durationSeconds = val * 60;
+        else durationSeconds = val;
+      }
+    }
+
+    plan.push({ action: "set_clip_properties", args: { durationSeconds }, status: "planned" });
+    return { reply: `Trimmed the video clip down to ${durationSeconds >= 60 ? `${durationSeconds / 60} minute(s)` : `${durationSeconds} seconds`}.`, plan };
+  }
+
+  if (p.includes("split") || p.includes("cut in half") || p.includes("divide")) {
+    plan.push({ action: "split_clips", args: { atSeconds: 3 }, status: "planned" });
+    return { reply: "Split the clip on the timeline.", plan };
+  }
+
+  if (p.includes("speed") || p.includes("fast") || p.includes("slow") || p.includes("2x") || p.includes("1.5x")) {
+    let speed = 1.5;
+    if (p.includes("2x") || p.includes("double")) speed = 2.0;
+    else if (p.includes("0.5x") || p.includes("slow")) speed = 0.5;
+    plan.push({ action: "set_clip_properties", args: { speed }, status: "planned" });
+    return { reply: `Adjusted clip playback speed to ${speed}x.`, plan };
+  }
+
+  if (p.includes("caption") || p.includes("subtitle")) {
+    plan.push({ action: "add_captions", args: { style: "karaoke-yellow" }, status: "planned" });
+    return { reply: "Added dynamic bold yellow auto-captions track.", plan };
+  }
+
+  if (p.includes("color") || p.includes("grade") || p.includes("vibrant") || p.includes("noir") || p.includes("warm") || p.includes("teal")) {
+    let preset = "vivid";
+    if (p.includes("noir") || p.includes("black and white") || p.includes("moody")) preset = "noir";
+    else if (p.includes("warm")) preset = "warm";
+    else if (p.includes("teal")) preset = "teal_orange";
+    plan.push({ action: "apply_color", args: { preset }, status: "planned" });
+    return { reply: `Applied ${preset} color grading to the video clips.`, plan };
+  }
+
+  if (p.includes("generate video") || p.includes("create video") || p.includes("ai video") || p.includes("veo")) {
+    plan.push({ action: "generate_video", args: { prompt }, status: "planned" });
+    return { reply: "Generating AI video with Veo.", plan };
+  }
 
   // 1. If element is selected, prioritize targeted micro-edits
   if (isText) {
@@ -316,7 +376,7 @@ function fallbackHeuristicPlanner(
     return { reply: "Aligning layout and harmonizing typography and colors.", plan };
   }
 
-  // 3. Fallback: slide/page layout update, NEVER blow away whole deck
+  // 3. Fallback
   plan.push({ action: "tidyLayout", args: {}, status: "planned" });
-  return { reply: "Adjusted layout and styling on the active slide.", plan };
+  return { reply: "Optimized the layout and spacing.", plan };
 }

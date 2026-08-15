@@ -820,8 +820,8 @@ export function VideoSurface(props: { workspaceId?: string; designId?: string })
   // Lazy initializer reads the stored value once on mount; we write on every
   // toggle (NOT via a setState-in-effect), so the panel state survives reloads.
   const [inspectorOpen, setInspectorOpen] = useState<boolean>(() => {
-    if (typeof window === "undefined") return true;
-    return window.localStorage.getItem(INSPECTOR_OPEN_KEY) !== "0";
+    if (typeof window === "undefined") return false;
+    return window.localStorage.getItem(INSPECTOR_OPEN_KEY) === "1";
   });
   const toggleInspector = useCallback(() => {
     setInspectorOpen((prev) => {
