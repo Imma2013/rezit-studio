@@ -203,12 +203,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     kind: p.kind,
     title: p.title,
     sourceUrl: p.sourceUrl,
+    previewUrl: p.thumbnailUrl || p.sourceUrl,
     thumbnailUrl: p.thumbnailUrl,
     authorName: p.authorName,
     aspectRatio: p.aspectRatio,
     tags: p.tags,
     favorited: false,
-    live: true,
+    live: false,
     license: "Unsplash License (Free for Commercial Use)",
   }));
 
