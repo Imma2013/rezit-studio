@@ -615,6 +615,55 @@ class RezitClient extends HyCanvasClient {
     }
   }
 
+  async stockCollections(): Promise<any[]> {
+    return [
+      { id: "tech", label: "Technology & AI", count: 12 },
+      { id: "people", label: "People & Keynotes", count: 15 },
+      { id: "business", label: "Business & Strategy", count: 10 },
+      { id: "cyberpunk", label: "Cyberpunk & Neon", count: 8 },
+      { id: "minimalist", label: "Minimalist & Textures", count: 14 },
+    ];
+  }
+
+  async stockFilters(): Promise<any> {
+    return {
+      categories: [
+        { id: "tech", label: "Technology" },
+        { id: "people", label: "People" },
+        { id: "business", label: "Business" },
+        { id: "cyberpunk", label: "Cyberpunk" },
+        { id: "minimalist", label: "Minimalist" },
+      ],
+    };
+  }
+
+  async stockSearch(query?: string, kind?: string, options?: any): Promise<any[]> {
+    try {
+      const q = query || "";
+      const cat = options?.category || options?.collection || "";
+      const res = await fetch(`/api/stock/photos/?q=${encodeURIComponent(q)}&category=${encodeURIComponent(cat)}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data?.items)) return data.items;
+      }
+    } catch {}
+    return [];
+  }
+
+  async stockFavorites(): Promise<any[]> {
+    return [];
+  }
+
+  async stockRecent(): Promise<any[]> {
+    return [];
+  }
+
+  async toggleStockFavorite(id: string): Promise<{ favorited: boolean }> {
+    return { favorited: true };
+  }
+
+  async recordStockRecent(id: string): Promise<void> {}
+
   async listTemplateCollections(workspaceId: string): Promise<any[]> {
     try {
       return await super.listTemplateCollections(workspaceId);
