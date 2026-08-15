@@ -1196,13 +1196,7 @@ export function EditorApp() {
             }}
           />
           </div>
-        ) : docKind === "design" || docKind === "whiteboard" ? (
-          // The Properties panel edits scene-node properties, so it applies to
-          // the canvas-backed kinds (design and whiteboard). Doc/sheet/video keep
-          // their state in meta and have no scene-node properties to show. The
-          // panel collapses to a slim rail for more canvas/board space. Under
-          // lg it defaults collapsed (effectivePropsOpen) to protect canvas width.
-          effectivePropsOpen ? (
+        ) : effectivePropsOpen ? (
             <aside
               // Below lg the panel floats over the canvas (like the left rail's
               // overlay) and caps its width to the viewport, so opening it on a
@@ -1272,8 +1266,7 @@ export function EditorApp() {
             >
               <PanelRightOpen size={18} className={MIRROR_IN_RTL} />
             </button>
-          )
-        ) : null}
+          )}
         {commentsOpen && designId && (
           <div className={rightPanelOverlay}>
             <CommentsPanel onClose={() => useComments.getState().setPanelOpen(false)} />
