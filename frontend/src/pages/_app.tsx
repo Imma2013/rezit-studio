@@ -1,20 +1,11 @@
 import "@/styles/globals.css";
 import { useEffect } from "react";
 import type { AppProps } from "next/app";
-import { Plus_Jakarta_Sans } from "next/font/google";
 import { ToastProvider } from "@/components/ui/Toast";
 import { watchSystemTheme } from "@/lib/theme";
 import { applyLocale, getLocalePreference, setLocalePreference } from "@/lib/locale";
 import { initI18n, loadCatalog, useI18nVersion } from "@/lib/i18n";
 import { useAuth } from "@/store/auth";
-
-// Friendly geometric brand sans, exposed as --font-brand for the design tokens.
-const brand = Plus_Jakarta_Sans({
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700", "800"],
-  variable: "--font-brand",
-  display: "swap",
-});
 
 export default function App({ Component, pageProps }: AppProps) {
   // Follow OS scheme changes live while the preference is "system" (the boot
@@ -44,7 +35,7 @@ export default function App({ Component, pageProps }: AppProps) {
   // language is deliberate and rare, so a remount is the right trade.
   const i18nVersion = useI18nVersion();
   return (
-    <div className={`${brand.variable} font-sans`}>
+    <div className="font-sans">
       <ToastProvider>
         <Component key={i18nVersion} {...pageProps} />
       </ToastProvider>

@@ -266,19 +266,29 @@ export function AiAgentPanel({
                 const fps = project.fps || 30;
                 const durSec = step.args?.durationSeconds as number;
                 const speed = step.args?.speed as number;
+                let maxEndFrame = 0;
                 project.tracks.forEach((t: any) => {
                   if (Array.isArray(t.clips) && t.clips.length > 0) {
                     t.clips.forEach((c: any) => {
                       if (durSec) {
-                        c.out = (c.in || 0) + durSec * fps;
+                        const targetSpan = Math.round(durSec * fps);
+                        c.outFrame = (c.inFrame || 0) + targetSpan;
+                        c.durationFrames = targetSpan;
                       }
                       if (speed) {
                         c.speed = speed;
                       }
+                      const clipEnd = (c.startFrame || 0) + Math.round(((c.outFrame || 1800) - (c.inFrame || 0)) / Math.abs(c.speed || 1));
+                      if (clipEnd > maxEndFrame) maxEndFrame = clipEnd;
                     });
                   }
                 });
+                if (maxEndFrame > 0) {
+                  project.durationFrames = maxEndFrame;
+                  project.range = { startFrame: 0, endFrame: maxEndFrame };
+                }
                 useEditor.getState().setDocMeta({ video: { ...project } });
+                useEditor.getState().tick();
                 step.status = "done";
                 return;
               }
@@ -289,23 +299,31 @@ export function AiAgentPanel({
               const project = meta.video as any;
               if (project && Array.isArray(project.tracks)) {
                 const fps = project.fps || 30;
+                const atSec = (step.args?.atSeconds as number) || 3;
+                const splitSpan = Math.round(atSec * fps);
                 project.tracks.forEach((t: any) => {
                   if (Array.isArray(t.clips) && t.clips.length > 0) {
                     const c = t.clips[0];
-                    const origOut = c.out || 1800;
-                    const splitFrame = (c.in || 0) + 3 * fps;
-                    c.out = splitFrame;
-                    t.clips.push({
-                      ...c,
-                      id: `clip-${Date.now()}`,
-                      label: `${c.label || "Clip"} (Part 2)`,
-                      in: splitFrame,
-                      out: origOut,
-                      start: (c.start || 0) + 3 * fps,
-                    });
+                    const origIn = c.inFrame || 0;
+                    const origOut = c.outFrame || 1800;
+                    const splitPoint = origIn + splitSpan;
+                    if (splitPoint < origOut) {
+                      c.outFrame = splitPoint;
+                      c.durationFrames = splitSpan;
+                      t.clips.push({
+                        ...c,
+                        id: `clip_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+                        name: `${c.name || "Clip"} (Part 2)`,
+                        startFrame: (c.startFrame || 0) + splitSpan,
+                        inFrame: splitPoint,
+                        outFrame: origOut,
+                        durationFrames: origOut - splitPoint,
+                      });
+                    }
                   }
                 });
                 useEditor.getState().setDocMeta({ video: { ...project } });
+                useEditor.getState().tick();
                 step.status = "done";
                 return;
               }
@@ -319,11 +337,33 @@ export function AiAgentPanel({
                 project.tracks.forEach((t: any) => {
                   if (Array.isArray(t.clips)) {
                     t.clips.forEach((c: any) => {
-                      c.color = { preset, brightness: 1.05, contrast: 1.15, saturation: 1.2 };
+                      c.color = {
+                        preset,
+                        brightness: preset === "vivid" ? 1.05 : preset === "noir" ? 1.0 : 1.1,
+                        contrast: preset === "vivid" ? 1.2 : preset === "noir" ? 1.4 : 1.1,
+                        saturation: preset === "noir" ? 0.0 : preset === "vivid" ? 1.4 : 1.2,
+                      };
                     });
                   }
                 });
                 useEditor.getState().setDocMeta({ video: { ...project } });
+                useEditor.getState().tick();
+                step.status = "done";
+                return;
+              }
+            }
+
+            if (step.action === "set_project_settings") {
+              const meta = useEditor.getState().doc.meta;
+              const project = meta.video as any;
+              if (project) {
+                if (step.args?.aspectRatio === "9:16") {
+                  project.stage = { width: 1080, height: 1920 };
+                } else if (step.args?.aspectRatio === "16:9") {
+                  project.stage = { width: 1920, height: 1080 };
+                }
+                useEditor.getState().setDocMeta({ video: { ...project } });
+                useEditor.getState().tick();
                 step.status = "done";
                 return;
               }
