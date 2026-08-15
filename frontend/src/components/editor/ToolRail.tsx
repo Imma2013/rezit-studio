@@ -9,15 +9,13 @@ import { ElementsPanel, TextPanel, UploadsPanel, StockPanel, AppsPanel, AiPanel,
 import { BrandPanel } from "./BrandPanel";
 import { tr } from "@/lib/i18n";
 
-type Tool = "templates" | "elements" | "text" | "ai" | "uploads" | "stock" | "apps" | "brand" | "layers";
+type Tool = "templates" | "elements" | "text" | "uploads" | "apps" | "brand" | "layers";
 
 const tools = (): { id: Tool; icon: typeof Shapes; label: string }[] => [
   { id: "templates", icon: LayoutTemplate, label: tr("editor.templates") },
   { id: "elements", icon: Shapes, label: tr("editor.elements") },
   { id: "text", icon: Type, label: tr("editor.text") },
-  { id: "ai", icon: Sparkles, label: "AI" },
   { id: "uploads", icon: Upload, label: tr("editor.uploads") },
-  { id: "stock", icon: ImagePlus, label: tr("editor.stock") },
   { id: "apps", icon: LayoutGrid, label: tr("editor.apps") },
   { id: "brand", icon: Palette, label: tr("editor.brand") },
   { id: "layers", icon: Layers, label: tr("editor.layers") },
@@ -40,9 +38,7 @@ export function ToolRail({ workspaceId, overlay = false, defaultCollapsed = fals
       case "templates": return <TemplatesPanel />;
       case "elements": return <ElementsPanel />;
       case "text": return <TextPanel />;
-      case "ai": return <AiPanel workspaceId={workspaceId} />;
       case "uploads": return <UploadsPanel workspaceId={workspaceId} />;
-      case "stock": return <StockPanel workspaceId={workspaceId} />;
       case "apps": return <AppsPanel />;
       case "brand": return <BrandPanel workspaceId={workspaceId} />;
       case "layers": return <PanelShell title={tr("editor.layers")}><LayersTabs /></PanelShell>;

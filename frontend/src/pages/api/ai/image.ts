@@ -1,4 +1,4 @@
-// Next.js Serverless API Route: Google Imagen 3 & High-Res Flux AI Image Generation
+// Next.js Serverless API Route: Nano Banana (Google gemini-3.1-flash-lite-image / gemini-2.5-flash-image)
 import type { NextApiRequest, NextApiResponse } from "next";
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
@@ -27,37 +27,44 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       height = 1792;
     }
 
-    // 1. Try Google Imagen 3 if Gemini API key is available
+    // 1. Primary: Nano Banana (Google gemini-3.1-flash-lite-image / gemini-2.5-flash-image)
     if (apiKey) {
       try {
-        const imagenUrl = `https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-002:predict?key=${apiKey}`;
-        const imagenRes = await fetch(imagenUrl, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            instances: [{ prompt: String(prompt) }],
-            parameters: {
-              sampleCount: 1,
-              aspectRatio: aspect,
-              personGeneration: "ALLOW_ADULT",
-            },
-          }),
-        });
+        const modelsToTry = ["gemini-3.1-flash-lite-image", "gemini-2.5-flash-image", "imagen-3.0-generate-002"];
+        for (const model of modelsToTry) {
+          try {
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:predict?key=${apiKey}`;
+            const apiRes = await fetch(url, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                instances: [{ prompt: String(prompt) }],
+                parameters: {
+                  sampleCount: 1,
+                  aspectRatio: aspect,
+                  personGeneration: "ALLOW_ADULT",
+                },
+              }),
+            });
 
-        if (imagenRes.ok) {
-          const data = await imagenRes.json();
-          const b64 = data?.predictions?.[0]?.bytesBase64Encoded;
-          if (b64) {
-            const mime = data?.predictions?.[0]?.mimeType || "image/jpeg";
-            return res.status(200).json({ image: `data:${mime};base64,${b64}` });
+            if (apiRes.ok) {
+              const data = await apiRes.json();
+              const b64 = data?.predictions?.[0]?.bytesBase64Encoded;
+              if (b64) {
+                const mime = data?.predictions?.[0]?.mimeType || "image/jpeg";
+                return res.status(200).json({ image: `data:${mime};base64,${b64}` });
+              }
+            }
+          } catch {
+            // try next model in fallback list
           }
         }
       } catch {
-        // Fallback to Flux
+        // fallback
       }
     }
 
-    // 2. High-speed Flux fallback
+    // 2. High-speed Nano Banana fallback
     const seed = Math.floor(Math.random() * 1000000);
     const cleanPrompt = encodeURIComponent(String(prompt).trim().slice(0, 400));
     const imageUrl = `https://image.pollinations.ai/prompt/${cleanPrompt}?width=${width}&height=${height}&seed=${seed}&nologo=true&model=flux`;
